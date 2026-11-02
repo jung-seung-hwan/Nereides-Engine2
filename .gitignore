@@ -1,0 +1,32 @@
+# Build outputs
+bin/
+obj/
+build/
+out/
+Debug/
+Release/
+x64/
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.cso
+
+# Local IDE state
+.vs/
+*.user
+*.suo
+.vscode/
+
+# Generated diagnostics and dependencies
+logs/
+captures/
+dist/
+vcpkg_installed/
+
+# Private local configuration
+.env
+.env.*
+!.env.example
