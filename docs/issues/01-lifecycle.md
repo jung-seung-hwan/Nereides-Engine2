@@ -10,10 +10,10 @@ Scene이 GameObject를, GameObject가 Component를 소유한다. Component의 �
 
 ## 완료 조건
 
-- [ ] 생성·활성·갱신·삭제 순서가 문서와 로그에 나타난다.
-- [ ] 비활성 객체의 동작 Component는 갱신되지 않는다.
-- [ ] 갱신 중 삭제 요청에도 순회 중인 객체 접근이 깨지지 않는다.
-- [ ] 반복 생성·정리에서 중복 정리와 잔여 객체가 없다.
+- [x] 생성·활성·갱신·삭제 순서가 문서와 로그에 나타난다.
+- [x] 비활성 객체의 동작 Component는 갱신되지 않는다.
+- [x] 갱신 중 삭제 요청에도 순회 중인 객체 접근이 깨지지 않는다.
+- [x] 반복 생성·정리에서 중복 정리와 잔여 객체가 없다.
 
 ## 학생 질문과 과제
 
@@ -25,6 +25,6 @@ Scene이 GameObject를, GameObject가 Component를 소유한다. Component의 �
 
 ## 상태
 
-- 코드: 미착수
+- 코드: 로컬 Debug·Release 빌드·수명 검증 5개 통과, PR 검토 대기
 - 학생 이해: 미확인
-- 실제 이슈 / PR / 학생 답변: 아직 없음
+- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/2; 학생 답변: 아직 없음
