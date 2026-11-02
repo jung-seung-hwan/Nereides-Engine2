@@ -1,4 +1,4 @@
-name: Build learning prototype
+name: Build Nereides Engine2
 
 on:
   push:
@@ -9,12 +9,14 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
-        run: cmake -S . -B build -A x64
-      - name: Build
-        run: cmake --build build --config Release
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build Visual Studio solution
+        run: msbuild NereidesEngine2.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64
       - name: Run execution order demo
-        run: ./build/Release/KrakenLearning.exe
+        run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe

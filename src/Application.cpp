@@ -22,7 +22,7 @@ void Application::Run()
 
 void Application::Initialize()
 {
-    std::cout << "Stage 0: execution order demo\n";
+    std::cout << "Nereides Engine2 - Stage 0: execution order demo\n";
     std::cout << "No real input, clock, animation, collision, or DX11 yet.\n";
     std::cout << "Initialize\n";
 }

@@ -41,26 +41,23 @@ flowchart TB
 1. `src/main.cpp`: 프로그램이 처음 시작하는 곳과 Application의 수명을 확인한다.
 2. `src/Application.h`: Application이 외부에 제공하는 Run과 내부 단계 함수들을 확인한다.
 3. `src/Application.cpp`: Run에서 함수가 호출되는 순서를 읽는다. 각 단계의 내부는 지금 로그 한 줄뿐이다.
-4. `CMakeLists.txt`: 어떤 소스 파일로 실행 파일을 만드는지 확인한다.
+4. `NereidesEngine2.vcxproj`: 어떤 소스 파일로 실행 파일을 만드는지 확인한다.
 
 ## 빌드와 실행
 
-필요한 도구는 Visual Studio 2022의 C++ 데스크톱 개발 도구와 CMake다. 저장소 루트에서 PowerShell로 실행한다.
+Visual Studio 2022의 C++ 데스크톱 개발 도구(v143)와 Windows SDK를 설치한다.
+저장소 루트의 NereidesEngine2.sln을 열고 Debug 또는 Release / x64를 선택한다.
+NereidesEngine2를 시작 프로젝트로 설정하고 Ctrl+F5를 누른다.
+
+Developer PowerShell for VS 2022에서는 다음 명령도 사용할 수 있다.
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-./build/Release/KrakenLearning.exe
+msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
+./bin/x64/Debug/NereidesEngine2.exe
 ```
 
-CMake가 PATH에 없고 VS2022 Community의 기본 위치에 설치돼 있다면 다음을 사용한다.
-
-```powershell
-$cmakePath = 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
-& $cmakePath -S . -B build -G 'Visual Studio 17 2022' -A x64
-& $cmakePath --build build --config Release
-./build/Release/KrakenLearning.exe
-```
+소스 파일 추가는 Visual Studio 프로젝트에서 수행한다. .sln, .vcxproj, .filters를 Git으로 관리한다.
+예전에 생성한 build/KrakenLearning.sln 대신 저장소 루트의 NereidesEngine2.sln을 사용한다.
 
 ## 실행 합격 기준
 
@@ -70,11 +67,11 @@ $cmakePath = 'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\ID
 - 마지막에 `Shutdown`이 한 번 출력되고 종료 코드가 0이다.
 - 실제 입력·시간·그래픽이 구현됐다고 보고하지 않는다.
 
-GitHub Actions는 같은 소스를 Release로 빌드하고 실행한다. 콘솔 실행 성공은 구조 골격의 확인일 뿐 이후 모듈의 정확성 검증은 아니다.
+GitHub Actions는 같은 솔루션을 Debug와 Release로 빌드하고 실행한다. 콘솔 실행 성공은 구조 골격의 확인일 뿐 이후 모듈의 정확성 검증은 아니다.
 
 ## 검증 기록
 
-2026-11-02, Windows 개발 PC에서 VS2022 / MSVC 19.44.35225.0으로 Release 구성과 빌드에 성공했다. 실행은 위 순서로 정확히 3프레임을 출력하고 종료 코드 0으로 끝났다. 이 기록은 로컬 실행 결과다. GitHub Actions 결과는 PR의 Checks에서 별도로 확인한다.
+2026-11-02, Windows 개발 PC에서 VS2022 / MSVC 19.44.35225.0으로 직접 관리하는 NereidesEngine2.sln의 Debug·Release 빌드에 성공했다. 실행은 위 순서로 정확히 3프레임을 출력하고 종료 코드 0으로 끝났다. 이 기록은 로컬 실행 결과다. GitHub Actions 결과는 PR의 Checks에서 별도로 확인한다.
 
 ## 학생이 직접 답할 질문
 
