@@ -25,7 +25,7 @@ flowchart TD
 | 모듈 | 소유자 | 받는 것 | 내보내는 것 | 호출 시점 |
 | --- | --- | --- | --- | --- |
 | Input | Application | 키 누름·뗌, 마우스 이동, 포커스 상실 | tick 하나 동안 고정된 누름·유지·뗌과 마우스 변화량 | 수집은 프레임 중 언제든, 소비는 각 tick 시작에 한 번 |
-| Time | Application | 실제 경과 시간, 정지·배속 요청, tick 종료 알림 | 이번 프레임의 tick 수, tick 길이, 실제·시뮬레이션 누적 시간, 버린 시간 | 프레임 시작에 BeginFrame 한 번, 각 tick 끝에 FinishTick 한 번 |
+| Time | Application | 실제 경과 시간, 정지·배속 요청, tick 종료 알림 | 이번 프레임의 tick 수, tick 길이, 실제·시뮬레이션·버린 시간의 누적값 | 프레임 시작에 BeginFrame 한 번, 각 tick 끝에 FinishTick 한 번 |
 | PlayerControl | Player GameObject | Input의 tick 결과, Time의 tick 길이 | Player Transform 변경, 공격 횟수 | 각 tick의 Scene.Update 안 |
 | Application | main | 데모 사건과 프레임 길이 | 위 모듈의 호출 순서 | 매 프레임 |
 
@@ -101,7 +101,7 @@ Input은 두 쪽으로 나뉜다.
 
 ### 낮은 FPS에서 따라잡기 상한
 
-프레임 하나에서 실행할 tick 수에 상한을 둔다. 상한을 넘는 누적 시간은 모두 버리고 DroppedTime에 기록한다.
+프레임 하나에서 실행할 tick 수에 상한을 둔다. 상한을 넘는 누적 시간은 모두 버리고 DroppedTime에 더해 기록한다. DroppedTime은 프레임별 값이 아니라 지금까지 버린 시간의 합이다. 데모 로그도 이 값을 total 묶음에 출력한다.
 
 - **이유**: 느린 프레임 뒤에 tick을 한꺼번에 많이 돌리면 그 tick 때문에 다음 프레임이 또 느려진다. 이 악순환을 끊는다.
 - **결과**: 그 순간 게임은 실제보다 느리게 진행된다. 시뮬레이션 시간이 실제 시간보다 적게 늘어난다.
@@ -141,6 +141,8 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 
 src/InputTimeTests.cpp는 위 규칙을 확인하는 검증 예제다.
 
+헤더 이름 Time.h는 표준 헤더 time.h와 대소문자만 다르다. 지금 프로젝트는 src 폴더를 추가 include 경로로 쓰지 않으므로 충돌하지 않는다. 나중에 src를 include 경로에 넣게 되면 Windows는 대소문자를 구분하지 않아 표준 헤더 대신 이 파일을 읽을 수 있다. 그때는 헤더 이름을 먼저 바꾼다.
+
 ## 실행
 
 Developer PowerShell for VS 2022:
@@ -175,14 +177,14 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 | --- | --- | --- |
 | NereidesEngine2.exe | 위 데모 표와 같은 tick 수와 위치, 종료 코드 0 | 두 구성 모두 일치, 종료 코드 0 |
 | NereidesEngine2.exe --lifecycle-tests | 단계 1 검증 5개 통과 | 두 구성 모두 PASS (5 cases) |
-| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 15개 통과 | 두 구성 모두 PASS (15 cases) |
+| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 16개 통과 | 두 구성 모두 PASS (16 cases) |
 
-입력·시간 검증 15개가 확인하는 것은 다음과 같다.
+입력·시간 검증 16개가 확인하는 것은 다음과 같다.
 
 - 누름·유지·뗌의 1회 전달, 다음 소비 전까지 고정되는 tick 결과, 짧은 입력 보관과 1회 소비, 키 자동 반복 무시, 마우스 변화량 합산과 1회 전달.
 - 포커스 상실 뒤 눌린 상태·사건·늦은 뗌 신호가 남지 않음.
 - 남은 시간 조각의 이월, tick을 마칠 때마다 늘어나는 시뮬레이션 시간과 호출 순서 위반 거부, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 tick 조각까지 버리는 정책.
-- 잘못된 tick 길이·상한·배속·실제 시간 거부.
+- 잘못된 tick 길이·상한·배속·실제 시간 거부, 배열 크기용 Key::Count를 실제 키로 넣었을 때 거부.
 - 정상·정지·2배속에서 Player 이동량, 대각선 이동 속도, tick 3번인 프레임에서 짧은 입력의 공격 1회.
 
 실제 창 메시지와 실제 시계는 아직 연결하지 않았다. 이 검증은 데모 사건과 정한 프레임 길이 기준이다.

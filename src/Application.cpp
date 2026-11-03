@@ -106,7 +106,7 @@ int Application::AdvanceTime(int frame)
               << " ticks=" << tickCount
               << " scale=" << m_time.Scale()
               << " paused=" << (m_time.IsPaused() ? "yes" : "no")
-              << " | total real=" << m_time.RealTime();
+              << " | total: real=" << m_time.RealTime();
     if (m_time.DroppedTime() > 0.0)
         std::cout << " dropped=" << m_time.DroppedTime();
     std::cout << '\n';

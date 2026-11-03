@@ -202,6 +202,16 @@ void TestInvalidValues()
     Check(rejected == 4, "Invalid time values were accepted.");
 }
 
+void TestInvalidKey()
+{
+    // Key::Count는 배열 크기용 값이다. 실제 키처럼 넣으면 거부해야 한다.
+    Input input;
+    int rejected = 0;
+    try { input.OnKeyDown(Key::Count); } catch (const std::invalid_argument&) { ++rejected; }
+    try { input.OnKeyUp(Key::Count); } catch (const std::invalid_argument&) { ++rejected; }
+    Check(rejected == 2, "Key::Count was accepted as a real key.");
+}
+
 void TestMovementFollowsTime()
 {
     // Scene을 마지막에 선언해 먼저 정리한다. PlayerControl이 Input과 Time을 참조하기 때문이다.
@@ -281,10 +291,11 @@ int RunInputTimeTests()
         TestScaleAtBoundary();
         TestCatchUpLimit();
         TestInvalidValues();
+        TestInvalidKey();
         TestMovementFollowsTime();
         TestDiagonalSpeed();
         TestTapInMultiTickFrame();
-        std::cout << "Input/time tests PASS (15 cases)\n";
+        std::cout << "Input/time tests PASS (16 cases)\n";
         return 0;
     }
     catch (const std::exception& error)
