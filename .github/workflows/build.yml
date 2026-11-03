@@ -18,7 +18,9 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
       - name: Build Visual Studio solution
         run: msbuild NereidesEngine2.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64
-      - name: Run object lifetime demo
+      - name: Run input and time demo
         run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe
       - name: Verify object lifetime boundaries
         run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --lifecycle-tests
+      - name: Verify input and time boundaries
+        run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --input-time-tests

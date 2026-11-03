@@ -10,13 +10,21 @@
     <ClInclude Include="src\Component.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\GameObject.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\GameObject.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\Input.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\Input.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\InputTimeTests.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\InputTimeTests.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\LifecycleTests.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\LifecycleTests.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\LogComponent.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\LogComponent.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\main.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\PlayerControl.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\PlayerControl.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Scene.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Scene.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\Time.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\Time.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Transform.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 </Project>
