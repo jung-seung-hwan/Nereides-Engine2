@@ -7,13 +7,13 @@ void Application::Run()
 {
     Initialize();
 
-    const int frameCount = 3;
+    const int frameCount = 5;
     for (int frame = 1; frame <= frameCount; ++frame)
     {
         std::cout << "\nFrame " << frame << '\n';
         ReadInput();
         AdvanceTime();
-        UpdateObjects();
+        UpdateObjects(frame);
         UpdateAnimation();
         CheckCollision();
         Render();
@@ -46,10 +46,10 @@ void Application::AdvanceTime()
     std::cout << "  2. Time      [placeholder]\n";
 }
 
-void Application::UpdateObjects()
+void Application::UpdateObjects(int frame)
 {
     std::cout << "  3. Objects\n";
-    m_scene.Update();
+    m_scene.Update(frame);
 }
 
 void Application::UpdateAnimation()

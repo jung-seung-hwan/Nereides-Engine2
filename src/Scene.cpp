@@ -15,7 +15,7 @@ GameObject& Scene::CreateObject(const std::string& name)
     return result;
 }
 
-void Scene::Update()
+void Scene::Update(int frame)
 {
     if (m_updating)
         throw std::logic_error("Scene::Update cannot call itself.");
@@ -26,7 +26,12 @@ void Scene::Update()
     try
     {
         for (std::size_t i = 0; i < count; ++i)
+        {
             m_objects[i]->Update();
+            if (frame == 1 && m_objects[i]->GetName() == "Player")
+                m_objects[i]->SetActive(false);
+        }
+            
     }
     catch (...)
     {

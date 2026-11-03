@@ -92,16 +92,16 @@ void TestActive()
     auto counter = std::make_unique<Counter>(object, counts);
     Counter* borrowed = counter.get();
     object.AddComponent(std::move(counter));
-    scene.Update();
+    scene.Update(1);
     object.SetActive(false);
-    scene.Update();
+    scene.Update(1);
     Check(counts.updates == 1, "Inactive object was updated.");
     object.SetActive(true);
     borrowed->SetEnabled(false);
-    scene.Update();
+    scene.Update(1);
     Check(counts.updates == 1, "Disabled component was updated.");
     borrowed->SetEnabled(true);
-    scene.Update();
+    scene.Update(1);
     Check(counts.updates == 2, "Reactivated component did not update.");
     scene.Clear();
     scene.Clear();
@@ -117,7 +117,7 @@ void TestDeferredDelete()
     first.AddComponent(std::make_unique<Counter>(first, later));
     GameObject& second = scene.CreateObject("other");
     second.AddComponent(std::make_unique<Counter>(second, other));
-    scene.Update();
+    scene.Update(1);
     Check(self.destroyed == 1 && later.destroyed == 1, "Deletion cleanup count differs.");
     Check(later.updates == 0 && other.updates == 1, "Deletion broke update order.");
     Check(scene.ObjectCount() == 1, "Deleted object remains in the scene.");
@@ -131,7 +131,7 @@ void TestClearDuringUpdate()
     first.AddComponent(std::make_unique<ClearScene>(first, scene, clear));
     GameObject& second = scene.CreateObject("other");
     second.AddComponent(std::make_unique<Counter>(second, other));
-    scene.Update();
+    scene.Update(1);
     Check(clear.destroyed == 1 && other.destroyed == 1, "Clear cleanup count differs.");
     Check(other.updates == 0 && scene.ObjectCount() == 0, "Clear must skip remaining updates.");
 }
@@ -142,9 +142,9 @@ void TestCreationBoundary()
     Scene scene;
     GameObject& parent = scene.CreateObject("parent");
     parent.AddComponent(std::make_unique<SpawnOnce>(parent, scene, counts));
-    scene.Update();
+    scene.Update(1);
     Check(counts.updates == 0, "New objects/components ran in their creation update.");
-    scene.Update();
+    scene.Update(1);
     Check(counts.updates == 21, "New objects/components did not run next update.");
     scene.Clear();
     Check(counts.destroyed == 21, "Spawned components were not cleaned up.");
@@ -158,7 +158,7 @@ void TestRepeatedLifetime()
         Scene scene;
         GameObject& object = scene.CreateObject("repeat");
         object.AddComponent(std::make_unique<Counter>(object, counts));
-        scene.Update();
+        scene.Update(1);
     }
     Check(counts.updates == 20 && counts.destroyed == 20, "Scene destruction leaked or doubled cleanup.");
 }

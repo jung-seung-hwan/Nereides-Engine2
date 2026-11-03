@@ -13,7 +13,7 @@ private:
     void Initialize();
     void ReadInput();
     void AdvanceTime();
-    void UpdateObjects();
+    void UpdateObjects(int frame);
     void UpdateAnimation();
     void CheckCollision();
     void Render();
