@@ -153,6 +153,7 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 - std::sqrt: 방향의 길이를 구한다. 대각선 이동 속도를 맞출 때만 쓴다.
 - const 참조 멤버: Scene은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
 - 앞 선언: GameObject.h는 `class Scene;`으로 Scene을 이름만 알린다. GameObject.h와 Scene.h가 서로를 포함하면 컴파일되지 않기 때문이다. 이름만 알아도 참조를 보관하고 돌려줄 수는 있다. 멤버 함수를 부르거나 객체 크기가 필요할 때만 전체 정의가 필요하다.
+- const 함수와 참조 멤버: `GetScene()`은 const 함수인데도 수정 가능한 `Scene&`를 돌려준다. const는 GameObject 자신의 값이 바뀌지 않게 막을 뿐, 참조로 가리키는 Scene까지 막지는 않는다. 단계 1의 `GetOwner()`도 같은 모양이다.
 - 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time·Scene 멤버는 여기서 정해야 한다.
 - 멤버 선언 순서: 생성은 선언 순서, 정리는 반대 순서다.
 
