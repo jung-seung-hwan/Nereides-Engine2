@@ -16,24 +16,46 @@ flowchart TD
     Scene --> Kraken["GameObject: Kraken"]
     Player --> PC["PlayerControl"]
     Kraken --> KC["LogComponent"]
-    PC -. "읽기 전용 참조" .-> Input
-    PC -. "읽기 전용 참조" .-> Time
+    PC -. "owner 참조" .-> Player
+    Player -. "자신을 소유한 Scene 참조" .-> Scene
+    Scene -. "읽기 전용 참조" .-> Input
+    Scene -. "읽기 전용 참조" .-> Time
 ```
 
 실선은 소유, 점선은 소유하지 않는 참조다. Application이 Input·Time·Scene을 값 멤버로 가진다.
+컴포넌트는 Input과 Time을 직접 보관하지 않는다. 소유자 GameObject를 거쳐 Scene에서 읽는다.
 
 | 모듈 | 소유자 | 받는 것 | 내보내는 것 | 호출 시점 |
 | --- | --- | --- | --- | --- |
 | Input | Application | 키 누름·뗌, 마우스 이동, 포커스 상실 | tick 하나 동안 고정된 누름·유지·뗌과 마우스 변화량 | 수집은 프레임 중 언제든, 소비는 각 tick 시작에 한 번 |
 | Time | Application | 실제 경과 시간, 정지·배속 요청, tick 종료 알림 | 이번 프레임의 tick 수, tick 길이, 실제·시뮬레이션·버린 시간의 누적값 | 프레임 시작에 BeginFrame 한 번, 각 tick 끝에 FinishTick 한 번 |
-| PlayerControl | Player GameObject | Input의 tick 결과, Time의 tick 길이 | Player Transform 변경, 공격 횟수 | 각 tick의 Scene.Update 안 |
+| Scene | Application | 만들 때 Input·Time 읽기 전용 참조, 객체 생성·삭제 요청 | 객체 목록, 컴포넌트에 알려 주는 Input·Time | 연결은 Application을 만들 때 한 번, 갱신은 각 tick |
+| PlayerControl | Player GameObject | 생성자로 이동 속도. Input의 tick 결과와 Time의 tick 길이는 소유자와 Scene을 거쳐 읽는다 | Player Transform 변경, 공격 횟수 | 각 tick의 Scene.Update 안 |
 | Application | main | 데모 사건과 프레임 길이 | 위 모듈의 호출 순서 | 매 프레임 |
+
+### 컴포넌트가 입력과 시간을 읽는 경로
+
+컴포넌트는 `GetOwner()`로 GameObject에, `GetScene()`으로 Scene에 닿고, Scene의 `GetInput()`과 `GetTime()`으로 읽는다. Component의 `GetInput()`과 `GetTime()`이 이 경로를 대신 따라간다.
+
+- **생성자에는 고유 값만 받는다.** 이동 속도처럼 만들 때 정해지고 tick마다 바뀌지 않는 값이다. 단계 4의 클립 원본, 단계 6의 최대 HP도 같은 쪽이다.
+- **tick마다 읽는 환경은 소유자를 거쳐 읽는다.** 실행 중에 만든 객체도 Scene이 만들었으므로 같은 경로로 닿는다.
+- **Scene 창구 규칙**: Scene이 컴포넌트에 알려 주는 것은 읽기 전용 Input과 Time, 그리고 객체 생성뿐이다. Renderer, 모델 로더, 충돌 기능은 Scene에 넣지 않는다. 편하다는 이유로 넣기 시작하면 모든 것을 담는 창구가 되어, 저장소 규칙이 금지한 범용 서비스 컨테이너와 같아진다.
+- **읽는 것 표시**: 생성자만 봐서는 무엇을 읽는지 알 수 없다. 그래서 컴포넌트 헤더 주석에 읽는 것을 적는다.
+- **다시 검토할 신호**: Scene에 Input·Time 말고 다른 서비스를 넣고 싶어질 때다. 그때는 이 규칙을 지키는 다른 전달 방법을 먼저 찾는다.
 
 ### 선언 순서가 곧 수명 순서다
 
 C++는 멤버를 선언한 순서대로 만들고, 반대 순서로 정리한다.
 Application은 Input, Time, Scene 순서로 선언한다. 그래서 Scene이 가장 먼저 정리된다.
-PlayerControl이 참조하는 Input과 Time은 PlayerControl보다 늦게 정리되므로, Component가 살아 있는 동안 참조가 항상 유효하다.
+Scene이 참조하는 Input과 Time은 Scene보다 늦게 정리되므로, Scene이 살아 있는 동안 참조가 항상 유효하다.
+GameObject가 가진 Scene 참조에는 이 규칙이 필요 없다. Scene이 GameObject를 소유하므로 Scene이 항상 더 오래 산다.
+서비스 참조를 보관하는 곳이 Scene 한 곳뿐이라, 선언 순서 규칙도 Application의 세 줄에만 걸린다.
+
+### 단계 2에서 바뀐 단계 1 코드
+
+- GameObject는 자신을 소유한 Scene을 안다. Scene이 객체를 만들 때 자기 자신을 넘긴다.
+- Scene은 만들 때 Input과 Time을 받는다. 그래서 시험에서도 Scene을 만들려면 Input과 Time이 필요하다.
+- Component에 `GetInput()`과 `GetTime()`이 생겼다. `Update()`의 모양은 단계 1 그대로다.
 
 ## 한 프레임의 흐름
 
@@ -128,8 +150,9 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 - enum class: 키와 행동 이름을 숫자 대신 이름으로 쓴다. 다른 enum과 섞이지 않는다.
 - `static_cast<int>`: enum class 값을 배열 번호로 바꿀 때만 쓴다.
 - std::sqrt: 방향의 길이를 구한다. 대각선 이동 속도를 맞출 때만 쓴다.
-- const 참조 멤버: PlayerControl은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
-- 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time 멤버는 여기서 정해야 한다.
+- const 참조 멤버: Scene은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
+- 앞 선언: GameObject.h는 `class Scene;`으로 Scene을 이름만 알린다. GameObject.h와 Scene.h가 서로를 포함하면 컴파일되지 않기 때문이다.
+- 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time·Scene 멤버는 여기서 정해야 한다.
 - 멤버 선언 순서: 생성은 선언 순서, 정리는 반대 순서다.
 
 ## 읽기 순서
@@ -137,7 +160,8 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 1. src/Application.cpp: 프레임과 tick의 반복, 수집·소비 위치.
 2. src/Input.h / Input.cpp: 수집·소비·읽기의 경계와 행동 표.
 3. src/Time.h / Time.cpp: 누적기, tick 수 결정과 진행의 분리, 적용 경계, 따라잡기 상한.
-4. src/PlayerControl.cpp: 입력과 시간을 읽는 행동 Component와 대각선 속도 보정.
+4. src/Scene.h와 src/Component.cpp: 컴포넌트가 소유자와 Scene을 거쳐 입력과 시간을 읽는 경로.
+5. src/PlayerControl.cpp: 입력과 시간을 읽는 행동 Component와 대각선 속도 보정.
 
 src/InputTimeTests.cpp는 위 규칙을 확인하는 검증 예제다.
 
