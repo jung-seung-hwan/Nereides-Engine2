@@ -2,6 +2,10 @@
 #include <stdexcept>
 #include <utility>
 
+Scene::Scene(const Input& input, const Time& time) : m_input(input), m_time(time)
+{
+}
+
 Scene::~Scene()
 {
     Clear();
@@ -9,7 +13,8 @@ Scene::~Scene()
 
 GameObject& Scene::CreateObject(const std::string& name)
 {
-    auto object = std::make_unique<GameObject>(name);
+    // 새 GameObject에 자기 자신을 넘긴다. 컴포넌트는 이 참조를 거쳐 Input과 Time을 읽는다.
+    auto object = std::make_unique<GameObject>(*this, name);
     GameObject& result = *object;
     m_objects.push_back(std::move(object));
     return result;

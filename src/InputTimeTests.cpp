@@ -212,14 +212,30 @@ void TestInvalidKey()
     Check(rejected == 2, "Key::Count was accepted as a real key.");
 }
 
-void TestMovementFollowsTime()
+void TestServiceAccessThroughOwner()
 {
-    // Scene을 마지막에 선언해 먼저 정리한다. PlayerControl이 Input과 Time을 참조하기 때문이다.
     Input input;
     Time time(0.1, 3);
-    Scene scene;
+    Scene scene(input, time);
+    GameObject& player = scene.CreateObject("probe");
+    auto control = std::make_unique<PlayerControl>(player, 1.0f);
+    PlayerControl* borrowed = control.get();
+    player.AddComponent(std::move(control));
+
+    // 컴포넌트는 소유자 GameObject와 그 Scene을 거쳐 같은 Input과 Time에 닿는다.
+    Check(&player.GetScene() == &scene, "GameObject does not know the Scene that owns it.");
+    Check(&borrowed->GetInput() == &input && &borrowed->GetTime() == &time,
+          "Component did not reach the Scene's Input and Time.");
+}
+
+void TestMovementFollowsTime()
+{
+    // Scene을 마지막에 선언해 먼저 정리한다. Scene이 Input과 Time을 참조하기 때문이다.
+    Input input;
+    Time time(0.1, 3);
+    Scene scene(input, time);
     GameObject& player = scene.CreateObject("mover");
-    player.AddComponent(std::make_unique<PlayerControl>(player, input, time, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
 
     input.OnKeyDown(Key::W);
     for (int i = 0; i < 10; ++i)
@@ -242,9 +258,9 @@ void TestDiagonalSpeed()
 {
     Input input;
     Time time(0.1, 3);
-    Scene scene;
+    Scene scene(input, time);
     GameObject& player = scene.CreateObject("diagonal");
-    player.AddComponent(std::make_unique<PlayerControl>(player, input, time, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
 
     input.OnKeyDown(Key::W);
     input.OnKeyDown(Key::D);
@@ -260,9 +276,9 @@ void TestTapInMultiTickFrame()
 {
     Input input;
     Time time(0.1, 3);
-    Scene scene;
+    Scene scene(input, time);
     GameObject& player = scene.CreateObject("attacker");
-    auto control = std::make_unique<PlayerControl>(player, input, time, 1.0f);
+    auto control = std::make_unique<PlayerControl>(player, 1.0f);
     PlayerControl* borrowed = control.get();
     player.AddComponent(std::move(control));
 
@@ -292,10 +308,11 @@ int RunInputTimeTests()
         TestCatchUpLimit();
         TestInvalidValues();
         TestInvalidKey();
+        TestServiceAccessThroughOwner();
         TestMovementFollowsTime();
         TestDiagonalSpeed();
         TestTapInMultiTickFrame();
-        std::cout << "Input/time tests PASS (16 cases)\n";
+        std::cout << "Input/time tests PASS (17 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

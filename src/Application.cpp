@@ -17,8 +17,9 @@ const int DemoMaxTicksPerFrame = 3;
 const float PlayerSpeed = 1.0f; // 초당 이동 거리
 }
 
-// Time은 기본 생성자가 없으므로 초기화 목록에서 만든다.
-Application::Application() : m_time(DemoTickSeconds, DemoMaxTicksPerFrame)
+// Time과 Scene은 기본 생성자가 없으므로 초기화 목록에서 만든다.
+// Scene에는 앞에서 만든 Input과 Time을 넘긴다. 서비스 연결은 여기 한 곳뿐이다.
+Application::Application() : m_time(DemoTickSeconds, DemoMaxTicksPerFrame), m_scene(m_input, m_time)
 {
 }
 
@@ -50,7 +51,7 @@ void Application::Initialize()
     std::cout << "Initialize\n";
     GameObject& player = m_scene.CreateObject("Player");
     player.transform.position.x = -2;
-    player.AddComponent(std::make_unique<PlayerControl>(player, m_input, m_time, PlayerSpeed));
+    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed));
     GameObject& kraken = m_scene.CreateObject("Kraken");
     kraken.transform.position.x = 2;
     kraken.AddComponent(std::make_unique<LogComponent>(kraken));

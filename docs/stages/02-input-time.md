@@ -201,14 +201,15 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 | --- | --- | --- |
 | NereidesEngine2.exe | 위 데모 표와 같은 tick 수와 위치, 종료 코드 0 | 두 구성 모두 일치, 종료 코드 0 |
 | NereidesEngine2.exe --lifecycle-tests | 단계 1 검증 5개 통과 | 두 구성 모두 PASS (5 cases) |
-| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 16개 통과 | 두 구성 모두 PASS (16 cases) |
+| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 17개 통과 | 두 구성 모두 PASS (17 cases) |
 
-입력·시간 검증 16개가 확인하는 것은 다음과 같다.
+입력·시간 검증 17개가 확인하는 것은 다음과 같다.
 
 - 누름·유지·뗌의 1회 전달, 다음 소비 전까지 고정되는 tick 결과, 짧은 입력 보관과 1회 소비, 키 자동 반복 무시, 마우스 변화량 합산과 1회 전달.
 - 포커스 상실 뒤 눌린 상태·사건·늦은 뗌 신호가 남지 않음.
 - 남은 시간 조각의 이월, tick을 마칠 때마다 늘어나는 시뮬레이션 시간과 호출 순서 위반 거부, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 tick 조각까지 버리는 정책.
 - 잘못된 tick 길이·상한·배속·실제 시간 거부, 배열 크기용 Key::Count를 실제 키로 넣었을 때 거부.
+- 컴포넌트가 소유자 GameObject와 그 Scene을 거쳐 같은 Input·Time에 닿음.
 - 정상·정지·2배속에서 Player 이동량, 대각선 이동 속도, tick 3번인 프레임에서 짧은 입력의 공격 1회.
 
 실제 창 메시지와 실제 시계는 아직 연결하지 않았다. 이 검증은 데모 사건과 정한 프레임 길이 기준이다.

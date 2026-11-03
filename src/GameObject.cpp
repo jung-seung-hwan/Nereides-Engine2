@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <utility>
 
-GameObject::GameObject(const std::string& name) : m_name(name)
+GameObject::GameObject(Scene& scene, const std::string& name) : m_scene(scene), m_name(name)
 {
     std::cout << "Create GameObject: " << m_name << '\n';
 }

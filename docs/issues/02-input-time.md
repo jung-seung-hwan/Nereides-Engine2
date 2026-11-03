@@ -26,7 +26,7 @@ Input은 tick 사이의 입력을 보관하고 한 번 소비하게 한다. Time
 
 ## 상태
 
-- 코드: 로컬 Debug·Release 빌드, 입력·시간 검증 16개, 수명 검증 5개 통과, PR 검토 대기
+- 코드: 로컬 Debug·Release 빌드, 입력·시간 검증 17개, 수명 검증 5개 통과, PR 검토 대기
 - 학생 이해: 미확인
 - 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/3; 학생 답변: 아직 없음
 - 구조 문서: [02. 입력 전달과 시간 관리](../stages/02-input-time.md)
