@@ -1,8 +1,8 @@
-# Kraken Engine Learning
+# Nereides Engine2
 
 C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 만드는 DX11 엔진 학습 프로젝트다. 최종 목표는 **캐릭터 한 명과 3D 크라켄 한 마리가 싸우는 작은 프로토타입**이다.
 
-기존 Nereides 구현과 별도 프로젝트로 운영한다. 현재 저장소에는 운영 문서와 단계별 이슈 초안만 있으며, 엔진 소스와 실행 파일은 아직 없다.
+기존 Nereides 구현과 별도 프로젝트로 운영한다. 현재 작업 브랜치에는 단계 0의 콘솔 실행 골격이 있다. 실제 입력·시간·애니메이션·충돌·DX11은 아직 구현하지 않았다.
 
 ## 먼저 읽을 문서
 
@@ -32,7 +32,19 @@ C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 �
 ## 현재 상태
 
 - 학습 운영 초안: 준비됨.
-- 단계 0 코드: 미착수.
-- 빌드·실행 검증: 소스가 없어 아직 수행하지 않음.
+- 단계 0 코드: 구현 및 로컬 검증 완료, PR 검토 대상.
+- 빌드·실행 검증: Windows / VS2022 Debug·Release 빌드와 3프레임 실행 성공. [실행 안내](docs/stages/00-execution.md)를 따른다.
 - 학생 이해: 미확인.
 - GitHub 이슈: [단계별 이슈 목록](docs/github-issues.md)에 등록됨. 첫 구현은 별도 PR로 검토한다.
+
+## Visual Studio에서 실행
+
+1. 저장소 루트의 NereidesEngine2.sln을 Visual Studio 2022에서 연다.
+2. Debug 또는 Release / x64를 선택한다.
+3. NereidesEngine2를 시작 프로젝트로 설정하고 Ctrl+F5를 누른다.
+
+C++ 데스크톱 개발 도구(v143)와 Windows SDK가 필요하다.
+새 소스 파일은 Visual Studio의 프로젝트에 추가하고 .vcxproj와 .filters도 함께 커밋한다.
+.sln과 .vcxproj는 직접 관리하며 CMake 생성 과정은 사용하지 않는다.
+실행 파일은 bin/x64/<구성>/NereidesEngine2.exe에 생성된다.
+기존 build 폴더는 이전 생성물이므로 새 작업에서는 루트의 솔루션을 연다.

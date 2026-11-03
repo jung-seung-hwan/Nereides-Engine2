@@ -10,11 +10,11 @@ Application의 명시적인 함수 호출로 전체 실행 순서를 보여준�
 
 ## 완료 조건
 
-- [ ] 목표 구조와 이번 단계 구현 범위를 구분하고 호출 순서 그림과 코드가 일치한다.
-- [ ] 각 프레임에서 Input → Time → Objects → Animation → Collision → Render가 출력된다.
-- [ ] 정해진 횟수 실행 후 정상 종료하고 정리 수명을 설명한다.
-- [ ] 빌드·실행 명령과 실제 출력 예시를 기록했다.
-- [ ] 없는 기능의 로그를 `placeholder`로 표시했다.
+- [x] 목표 구조와 이번 단계 구현 범위를 구분하고 호출 순서 그림과 코드가 일치한다.
+- [x] 각 프레임에서 Input → Time → Objects → Animation → Collision → Render가 출력된다.
+- [x] 정해진 횟수 실행 후 정상 종료하고 정리 수명을 설명한다.
+- [x] 빌드·실행 명령과 실제 출력 예시를 기록했다.
+- [x] 없는 기능의 로그를 `placeholder`로 표시했다.
 
 ## 학생 질문과 과제
 
@@ -26,6 +26,6 @@ Application의 명시적인 함수 호출로 전체 실행 순서를 보여준�
 
 ## 상태
 
-- 코드: 미착수
+- 코드: 로컬 검증 완료, PR 검토 대기
 - 학생 이해: 미확인
-- 실제 이슈 / PR / 학생 답변: 아직 없음
+- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/1; 학생 답변: 아직 없음
