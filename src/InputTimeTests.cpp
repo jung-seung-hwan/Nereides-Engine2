@@ -212,20 +212,67 @@ void TestInvalidKey()
     Check(rejected == 2, "Key::Count was accepted as a real key.");
 }
 
+// 컴포넌트가 자기 Update 안에서 읽은 Input·Time의 주소를 기록한다.
+struct SeenServices
+{
+    const Input* input = nullptr;
+    const Time* time = nullptr;
+};
+
+class ServiceReader : public Component
+{
+public:
+    ServiceReader(GameObject& owner, SeenServices& seen) : Component(owner), m_seen(seen) {}
+    void Update() override
+    {
+        m_seen.input = &GetInput();
+        m_seen.time = &GetTime();
+    }
+private:
+    SeenServices& m_seen;
+};
+
+// 첫 Update에서 새 객체를 만들고 ServiceReader를 붙인다.
+class SpawnReader : public Component
+{
+public:
+    SpawnReader(GameObject& owner, SeenServices& seen) : Component(owner), m_seen(seen) {}
+    void Update() override
+    {
+        if (m_spawned)
+            return;
+        m_spawned = true;
+        GameObject& child = GetOwner().GetScene().CreateObject("spawned reader");
+        child.AddComponent(std::make_unique<ServiceReader>(child, m_seen));
+    }
+private:
+    SeenServices& m_seen;
+    bool m_spawned = false;
+};
+
 void TestServiceAccessThroughOwner()
 {
     Input input;
     Time time(0.1, 3);
     Scene scene(input, time);
-    GameObject& player = scene.CreateObject("probe");
-    auto control = std::make_unique<PlayerControl>(player, 1.0f);
-    PlayerControl* borrowed = control.get();
-    player.AddComponent(std::move(control));
 
-    // 컴포넌트는 소유자 GameObject와 그 Scene을 거쳐 같은 Input과 Time에 닿는다.
-    Check(&player.GetScene() == &scene, "GameObject does not know the Scene that owns it.");
-    Check(&borrowed->GetInput() == &input && &borrowed->GetTime() == &time,
+    // 처음부터 있던 객체와, 갱신 중에 만들어질 객체의 컴포넌트를 함께 본다.
+    SeenServices direct;
+    GameObject& probe = scene.CreateObject("probe");
+    probe.AddComponent(std::make_unique<ServiceReader>(probe, direct));
+    SeenServices spawned;
+    GameObject& spawner = scene.CreateObject("spawner");
+    spawner.AddComponent(std::make_unique<SpawnReader>(spawner, spawned));
+    Check(&probe.GetScene() == &scene, "GameObject does not know the Scene that owns it.");
+
+    scene.Update();
+    Check(direct.input == &input && direct.time == &time,
           "Component did not reach the Scene's Input and Time.");
+    Check(spawned.input == nullptr, "Spawned object ran in its creation update.");
+
+    scene.Update();
+    Check(spawned.input == &input && spawned.time == &time,
+          "Spawned object's component did not reach the same Input and Time.");
 }
 
 void TestMovementFollowsTime()

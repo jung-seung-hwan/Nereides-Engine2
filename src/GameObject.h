@@ -11,7 +11,8 @@ class Scene;
 class GameObject
 {
 public:
-    // Scene::CreateObject가 자기 자신을 넘겨 만든다.
+    // Scene::CreateObject만 이 생성자를 부른다. 직접 만들면 Scene이 소유하지 않아
+    // 갱신·정리되지 않고, Scene보다 오래 살면 GetScene이 끊어진 참조를 돌려준다.
     GameObject(Scene& scene, const std::string& name);
     ~GameObject();
 

@@ -15,6 +15,7 @@ struct Counts
 };
 
 // 수명 검증은 입력과 시간을 쓰지 않지만, Scene을 만들려면 Input과 Time이 필요하다.
+// Update 모양을 유지하려고 Scene이 tick 환경을 갖게 한 설계 선택의 대가다.
 // Application과 같은 선언 순서라서 Scene이 가장 먼저 정리된다.
 struct TestWorld
 {

@@ -26,6 +26,7 @@ public:
     std::size_t ObjectCount() const { return m_objects.size(); }
 
     // 창구 규칙: 컴포넌트에 알려 주는 서비스는 Input과 Time 두 개뿐이다.
+    // 그 밖에 컴포넌트가 쓰는 것은 CreateObject와 Clear뿐이다. Update는 Application만 부른다.
     const Input& GetInput() const { return m_input; }
     const Time& GetTime() const { return m_time; }
 

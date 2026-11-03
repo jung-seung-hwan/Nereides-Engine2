@@ -35,11 +35,12 @@ flowchart TD
 
 ### 컴포넌트가 입력과 시간을 읽는 경로
 
-컴포넌트는 `GetOwner()`로 GameObject에, `GetScene()`으로 Scene에 닿고, Scene의 `GetInput()`과 `GetTime()`으로 읽는다. Component의 `GetInput()`과 `GetTime()`이 이 경로를 대신 따라간다.
+컴포넌트 안에서는 `GetInput()`과 `GetTime()`을 부른다. 이 두 함수가 `GetOwner().GetScene().GetInput()`처럼 소유자 GameObject와 그 Scene을 거쳐 읽는다. 컴포넌트만 쓰도록 protected로 두었다.
 
 - **생성자에는 고유 값만 받는다.** 이동 속도처럼 만들 때 정해지고 tick마다 바뀌지 않는 값이다. 단계 4의 클립 원본, 단계 6의 최대 HP도 같은 쪽이다.
 - **tick마다 읽는 환경은 소유자를 거쳐 읽는다.** 실행 중에 만든 객체도 Scene이 만들었으므로 같은 경로로 닿는다.
-- **Scene 창구 규칙**: Scene이 컴포넌트에 알려 주는 것은 읽기 전용 Input과 Time, 그리고 객체 생성뿐이다. Renderer, 모델 로더, 충돌 기능은 Scene에 넣지 않는다. 편하다는 이유로 넣기 시작하면 모든 것을 담는 창구가 되어, 저장소 규칙이 금지한 범용 서비스 컨테이너와 같아진다.
+- **GameObject는 Scene::CreateObject로만 만든다.** 직접 만들면 Scene이 소유하지 않아 갱신·정리되지 않는다. 그 객체가 Scene보다 오래 살면 `GetScene()`이 끊어진 참조를 돌려준다.
+- **Scene 창구 규칙**: Scene이 컴포넌트에 알려 주는 서비스는 읽기 전용 Input과 Time 두 개뿐이다. 그 밖에 컴포넌트가 Scene에서 쓰는 것은 객체 생성 `CreateObject`와 정리 요청 `Clear`뿐이다. `Clear`는 갱신 중이면 갱신이 끝난 뒤 처리된다. `Update`는 Application만 부르고, 갱신 중에 다시 부르면 예외가 난다. Renderer, 모델 로더, 충돌 기능은 Scene에 넣지 않는다. 편하다는 이유로 넣기 시작하면 모든 것을 담는 창구가 되어, 저장소 규칙이 금지한 범용 서비스 컨테이너와 같아진다.
 - **읽는 것 표시**: 생성자만 봐서는 무엇을 읽는지 알 수 없다. 그래서 컴포넌트 헤더 주석에 읽는 것을 적는다.
 - **다시 검토할 신호**: Scene에 Input·Time 말고 다른 서비스를 넣고 싶어질 때다. 그때는 이 규칙을 지키는 다른 전달 방법을 먼저 찾는다.
 
@@ -49,13 +50,13 @@ C++는 멤버를 선언한 순서대로 만들고, 반대 순서로 정리한다
 Application은 Input, Time, Scene 순서로 선언한다. 그래서 Scene이 가장 먼저 정리된다.
 Scene이 참조하는 Input과 Time은 Scene보다 늦게 정리되므로, Scene이 살아 있는 동안 참조가 항상 유효하다.
 GameObject가 가진 Scene 참조에는 이 규칙이 필요 없다. Scene이 GameObject를 소유하므로 Scene이 항상 더 오래 산다.
-서비스 참조를 보관하는 곳이 Scene 한 곳뿐이라, 선언 순서 규칙도 Application의 세 줄에만 걸린다.
+서비스 참조를 보관하는 곳은 Scene 한 곳뿐이다. 다만 Scene과 Input·Time을 함께 만드는 곳은 어디든 Input과 Time을 먼저 선언해야 한다. 지금은 Application, 시험의 TestWorld, 시험 함수의 지역 변수가 그런 곳이다.
 
 ### 단계 2에서 바뀐 단계 1 코드
 
 - GameObject는 자신을 소유한 Scene을 안다. Scene이 객체를 만들 때 자기 자신을 넘긴다.
 - Scene은 만들 때 Input과 Time을 받는다. 그래서 시험에서도 Scene을 만들려면 Input과 Time이 필요하다.
-- Component에 `GetInput()`과 `GetTime()`이 생겼다. `Update()`의 모양은 단계 1 그대로다.
+- Component에 protected 함수 `GetInput()`과 `GetTime()`이 생겼다. `Update()`의 모양은 단계 1 그대로다.
 
 ## 한 프레임의 흐름
 
@@ -151,7 +152,7 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 - `static_cast<int>`: enum class 값을 배열 번호로 바꿀 때만 쓴다.
 - std::sqrt: 방향의 길이를 구한다. 대각선 이동 속도를 맞출 때만 쓴다.
 - const 참조 멤버: Scene은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
-- 앞 선언: GameObject.h는 `class Scene;`으로 Scene을 이름만 알린다. GameObject.h와 Scene.h가 서로를 포함하면 컴파일되지 않기 때문이다.
+- 앞 선언: GameObject.h는 `class Scene;`으로 Scene을 이름만 알린다. GameObject.h와 Scene.h가 서로를 포함하면 컴파일되지 않기 때문이다. 이름만 알아도 참조를 보관하고 돌려줄 수는 있다. 멤버 함수를 부르거나 객체 크기가 필요할 때만 전체 정의가 필요하다.
 - 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time·Scene 멤버는 여기서 정해야 한다.
 - 멤버 선언 순서: 생성은 선언 순서, 정리는 반대 순서다.
 
@@ -209,7 +210,7 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 - 포커스 상실 뒤 눌린 상태·사건·늦은 뗌 신호가 남지 않음.
 - 남은 시간 조각의 이월, tick을 마칠 때마다 늘어나는 시뮬레이션 시간과 호출 순서 위반 거부, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 tick 조각까지 버리는 정책.
 - 잘못된 tick 길이·상한·배속·실제 시간 거부, 배열 크기용 Key::Count를 실제 키로 넣었을 때 거부.
-- 컴포넌트가 소유자 GameObject와 그 Scene을 거쳐 같은 Input·Time에 닿음.
+- 처음부터 있던 객체와 갱신 중에 만든 객체의 컴포넌트가 모두 자기 Update 안에서 소유자와 Scene을 거쳐 같은 Input·Time에 닿음.
 - 정상·정지·2배속에서 Player 이동량, 대각선 이동 속도, tick 3번인 프레임에서 짧은 입력의 공격 1회.
 
 실제 창 메시지와 실제 시계는 아직 연결하지 않았다. 이 검증은 데모 사건과 정한 프레임 길이 기준이다.
