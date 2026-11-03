@@ -9,6 +9,8 @@ class Component
 {
 public:
     explicit Component(GameObject& owner) : m_owner(owner) {}
+    // 소멸자는 Scene이 객체 목록을 정리하는 도중에 실행된다.
+    // 파생 클래스의 소멸자에서는 Scene을 바꾸는 CreateObject·Clear·Update를 부르지 않는다.
     virtual ~Component() = default;
     virtual void Update() {}
 

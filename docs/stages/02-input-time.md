@@ -35,12 +35,12 @@ flowchart TD
 
 ### 컴포넌트가 입력과 시간을 읽는 경로
 
-컴포넌트 안에서는 `GetInput()`과 `GetTime()`을 부른다. 이 두 함수가 `GetOwner().GetScene().GetInput()`처럼 소유자 GameObject와 그 Scene을 거쳐 읽는다. 컴포넌트만 쓰도록 protected로 두었다.
+컴포넌트 안에서는 `GetInput()`과 `GetTime()`을 부른다. 이 두 함수가 `GetOwner().GetScene().GetInput()`처럼 소유자 GameObject와 그 Scene을 거쳐 읽는다. 컴포넌트 안에서 쓰라고 protected로 두었다. 같은 값을 `GetOwner().GetScene()`으로도 읽을 수 있지만 읽기 전용이라 위험하지 않다.
 
 - **생성자에는 고유 값만 받는다.** 이동 속도처럼 만들 때 정해지고 tick마다 바뀌지 않는 값이다. 단계 4의 클립 원본, 단계 6의 최대 HP도 같은 쪽이다.
 - **tick마다 읽는 환경은 소유자를 거쳐 읽는다.** 실행 중에 만든 객체도 Scene이 만들었으므로 같은 경로로 닿는다.
 - **GameObject는 Scene::CreateObject로만 만든다.** 직접 만들면 Scene이 소유하지 않아 갱신·정리되지 않는다. 그 객체가 Scene보다 오래 살면 `GetScene()`이 끊어진 참조를 돌려준다.
-- **Scene 창구 규칙**: Scene이 컴포넌트에 알려 주는 서비스는 읽기 전용 Input과 Time 두 개뿐이다. 그 밖에 컴포넌트가 Scene에서 쓰는 것은 객체 생성 `CreateObject`와 정리 요청 `Clear`뿐이다. `Clear`는 갱신 중이면 갱신이 끝난 뒤 처리된다. `Update`는 Application만 부르고, 갱신 중에 다시 부르면 예외가 난다. Renderer, 모델 로더, 충돌 기능은 Scene에 넣지 않는다. 편하다는 이유로 넣기 시작하면 모든 것을 담는 창구가 되어, 저장소 규칙이 금지한 범용 서비스 컨테이너와 같아진다.
+- **Scene 창구 규칙**: Scene이 컴포넌트에 알려 주는 서비스는 읽기 전용 Input과 Time 두 개뿐이다. 그 밖에 컴포넌트가 Scene에서 쓰는 것은 객체 생성 `CreateObject`와 정리 요청 `Clear`뿐이다. `Clear`는 갱신 중이면 갱신이 끝난 뒤 처리된다. `Update`는 Application만 부르고, 갱신 중에 다시 부르면 예외가 난다. 컴포넌트 소멸자에서는 `CreateObject`, `Clear`, `Update`를 부르지 않는다. 소멸자는 Scene이 객체 목록을 정리하는 도중에 실행되므로, 그때 목록을 바꾸면 프로그램이 죽는다. 소멸자에서 Input·Time을 읽는 것은 괜찮다. 이 제한은 예약 반영 위치를 tick 마지막으로 옮기는 단계 4에서 구조로도 막는다. Renderer, 모델 로더, 충돌 기능은 Scene에 넣지 않는다. 편하다는 이유로 넣기 시작하면 모든 것을 담는 창구가 되어, 저장소 규칙이 금지한 범용 서비스 컨테이너와 같아진다.
 - **읽는 것 표시**: 생성자만 봐서는 무엇을 읽는지 알 수 없다. 그래서 컴포넌트 헤더 주석에 읽는 것을 적는다.
 - **다시 검토할 신호**: Scene에 Input·Time 말고 다른 서비스를 넣고 싶어질 때다. 그때는 이 규칙을 지키는 다른 전달 방법을 먼저 찾는다.
 
