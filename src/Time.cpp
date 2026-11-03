@@ -30,6 +30,9 @@ void Time::RequestScale(double scale)
 
 int Time::BeginFrame(double realSeconds)
 {
+    // 호출 약속: 지난 프레임의 tick을 모두 마친 뒤에 다음 프레임을 시작한다.
+    if (m_ticksLeft > 0)
+        throw std::logic_error("Finish every tick before the next frame.");
     if (realSeconds < 0.0)
         throw std::invalid_argument("Real elapsed time cannot be negative.");
 
@@ -57,6 +60,15 @@ int Time::BeginFrame(double realSeconds)
     if (m_accumulated < 0.0)
         m_accumulated = 0.0; // 여유값 때문에 생긴 아주 작은 음수를 정리한다.
 
-    m_simulationTime += ticks * m_tickSeconds;
+    m_ticksLeft = ticks;
     return ticks;
+}
+
+void Time::FinishTick()
+{
+    if (m_ticksLeft == 0)
+        throw std::logic_error("FinishTick was called without a pending tick.");
+
+    --m_ticksLeft;
+    m_simulationTime += m_tickSeconds;
 }

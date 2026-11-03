@@ -106,8 +106,7 @@ int Application::AdvanceTime(int frame)
               << " ticks=" << tickCount
               << " scale=" << m_time.Scale()
               << " paused=" << (m_time.IsPaused() ? "yes" : "no")
-              << " | total real=" << m_time.RealTime()
-              << " sim=" << m_time.SimulationTime();
+              << " | total real=" << m_time.RealTime();
     if (m_time.DroppedTime() > 0.0)
         std::cout << " dropped=" << m_time.DroppedTime();
     std::cout << '\n';
@@ -116,13 +115,16 @@ int Application::AdvanceTime(int frame)
 
 void Application::RunTick(int tick, int tickCount)
 {
-    std::cout << "  Tick " << tick << '/' << tickCount << '\n';
+    // tick 안의 시뮬레이션 시간은 이 tick이 시작한 시각이다.
+    std::cout << "  Tick " << tick << '/' << tickCount << " sim=" << m_time.SimulationTime() << '\n';
     // tick마다 한 번 소비한다. 행동 Component는 이 결과만 읽는다.
     m_input.ConsumeForTick();
     std::cout << "    3. Objects\n";
     m_scene.Update();
     UpdateAnimation();
     CheckCollision();
+    // tick 하나를 마쳤다. 시뮬레이션 시간이 tick 길이만큼 늘어난다.
+    m_time.FinishTick();
 }
 
 void Application::UpdateAnimation()
@@ -137,7 +139,7 @@ void Application::CheckCollision()
 
 void Application::Render()
 {
-    std::cout << "  6. Render    [placeholder] once per frame\n";
+    std::cout << "  6. Render    [placeholder] once per frame | sim=" << m_time.SimulationTime() << '\n';
 }
 
 void Application::Shutdown()

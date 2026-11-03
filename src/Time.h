@@ -11,8 +11,13 @@ public:
     void RequestPause(bool paused);
     void RequestScale(double scale);
 
-    // 프레임 경계. 실제 경과 시간을 받아 이번 프레임의 tick 수를 돌려준다.
+    // 프레임 경계. 실제 경과 시간을 받아 이번 프레임에 실행할 tick 수를 정해 돌려준다.
+    // 시뮬레이션 시간은 여기서 늘리지 않는다.
     int BeginFrame(double realSeconds);
+
+    // tick 하나를 마쳤음을 알린다. 시뮬레이션 시간이 tick 길이만큼 늘어난다.
+    // 그래서 tick 안에서 읽는 SimulationTime은 그 tick이 시작한 시각이다.
+    void FinishTick();
 
     double TickSeconds() const { return m_tickSeconds; }
     double RealTime() const { return m_realTime; }
@@ -30,6 +35,7 @@ private:
     bool m_requestedPaused = false;
     double m_requestedScale = 1.0;
 
+    int m_ticksLeft = 0;        // BeginFrame이 정했지만 아직 마치지 않은 tick 수
     double m_accumulated = 0.0; // 아직 tick으로 꺼내지 않은 게임 시간
     double m_realTime = 0.0;
     double m_simulationTime = 0.0;

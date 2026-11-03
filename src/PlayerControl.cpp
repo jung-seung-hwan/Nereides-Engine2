@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "Input.h"
 #include "Time.h"
+#include <cmath>
 #include <iostream>
 
 namespace
@@ -19,16 +20,27 @@ void PlayerControl::Update()
 {
     Transform& transform = GetOwner().transform;
 
-    // tick 길이는 배속과 관계없이 항상 같다. 배속은 tick 수를 바꾼다.
-    const float step = m_speed * static_cast<float>(m_time.TickSeconds());
+    // 눌린 키를 방향으로 모은다. 앞과 오른쪽은 +1, 뒤와 왼쪽은 -1이다.
+    float moveX = 0.0f;
+    float moveZ = 0.0f;
     if (m_input.IsHeld(Action::MoveForward))
-        transform.position.z += step;
+        moveZ += 1.0f;
     if (m_input.IsHeld(Action::MoveBack))
-        transform.position.z -= step;
+        moveZ -= 1.0f;
     if (m_input.IsHeld(Action::MoveRight))
-        transform.position.x += step;
+        moveX += 1.0f;
     if (m_input.IsHeld(Action::MoveLeft))
-        transform.position.x -= step;
+        moveX -= 1.0f;
+
+    // 대각선 방향의 길이는 1보다 길다(약 1.41). 길이로 나눠 어느 방향이든 같은 거리를 움직인다.
+    const float length = std::sqrt(moveX * moveX + moveZ * moveZ);
+    if (length > 0.0f)
+    {
+        // tick 길이는 배속과 관계없이 항상 같다. 배속은 tick 수를 바꾼다.
+        const float step = m_speed * static_cast<float>(m_time.TickSeconds());
+        transform.position.x += moveX / length * step;
+        transform.position.z += moveZ / length * step;
+    }
 
     transform.rotation.y += m_input.MouseDeltaX() * MouseTurnPerCount;
 

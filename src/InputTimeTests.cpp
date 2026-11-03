@@ -21,7 +21,16 @@ bool Near(double a, double b)
     return std::fabs(a - b) < 1e-4;
 }
 
-// Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비한 뒤 갱신한다.
+// Time만 검사할 때 쓴다. 프레임의 tick을 정하고 모두 마친다.
+int AdvanceFrame(Time& time, double realSeconds)
+{
+    const int ticks = time.BeginFrame(realSeconds);
+    for (int i = 0; i < ticks; ++i)
+        time.FinishTick();
+    return ticks;
+}
+
+// Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·갱신한 뒤 tick을 마친다.
 int RunFrame(Time& time, Input& input, Scene& scene, double realSeconds)
 {
     const int ticks = time.BeginFrame(realSeconds);
@@ -29,6 +38,7 @@ int RunFrame(Time& time, Input& input, Scene& scene, double realSeconds)
     {
         input.ConsumeForTick();
         scene.Update();
+        time.FinishTick();
     }
     return ticks;
 }
@@ -49,6 +59,23 @@ void TestPressHoldRelease()
           "Release tick must see release without hold.");
     input.ConsumeForTick();
     Check(!input.IsReleased(Action::MoveForward), "Release must be delivered once.");
+}
+
+void TestTickResultStaysFixed()
+{
+    Input input;
+    input.OnKeyDown(Key::W);
+    input.ConsumeForTick();
+    // 다음 소비 전에 들어온 사건은 이번 tick의 결과를 바꾸지 않는다.
+    input.OnKeyUp(Key::W);
+    input.OnMouseMove(4, 0);
+    Check(input.IsHeld(Action::MoveForward) && !input.IsReleased(Action::MoveForward)
+              && input.MouseDeltaX() == 0,
+          "Tick result changed before the next consume.");
+    input.ConsumeForTick();
+    Check(!input.IsHeld(Action::MoveForward) && input.IsReleased(Action::MoveForward)
+              && input.MouseDeltaX() == 4,
+          "Events after a consume were not delivered on the next tick.");
 }
 
 void TestShortTapKeptOnce()
@@ -107,23 +134,42 @@ void TestFocusLost()
 void TestTickAccumulation()
 {
     Time time(0.1, 3);
-    Check(time.BeginFrame(0.05) == 0, "Half a tick must not run.");
-    Check(time.BeginFrame(0.05) == 1, "Leftover time must carry to the next frame.");
-    Check(time.BeginFrame(0.2) == 2, "Two ticks of time must run two ticks.");
+    Check(AdvanceFrame(time, 0.05) == 0, "Half a tick must not run.");
+    Check(AdvanceFrame(time, 0.05) == 1, "Leftover time must carry to the next frame.");
+    Check(AdvanceFrame(time, 0.2) == 2, "Two ticks of time must run two ticks.");
     Check(Near(time.SimulationTime(), 0.3) && Near(time.RealTime(), 0.3), "Accumulated time differs.");
+}
+
+void TestSimulationTimePerTick()
+{
+    Time time(0.1, 3);
+    Check(time.BeginFrame(0.3) == 3, "Three ticks of time must run three ticks.");
+    // BeginFrame은 tick 수만 정한다. 시뮬레이션 시간은 tick을 마칠 때마다 늘어난다.
+    Check(Near(time.SimulationTime(), 0.0), "Simulation time moved before any tick finished.");
+    time.FinishTick();
+    Check(Near(time.SimulationTime(), 0.1), "First tick must end at 0.1.");
+    time.FinishTick();
+    time.FinishTick();
+    Check(Near(time.SimulationTime(), 0.3), "Third tick must end at 0.3.");
+
+    int rejected = 0;
+    try { time.FinishTick(); } catch (const std::logic_error&) { ++rejected; }
+    time.BeginFrame(0.1);
+    try { time.BeginFrame(0.1); } catch (const std::logic_error&) { ++rejected; }
+    Check(rejected == 2, "Broken tick order was not reported.");
 }
 
 void TestPauseAtBoundary()
 {
     Time time(0.1, 3);
-    time.BeginFrame(0.05);
+    AdvanceFrame(time, 0.05);
     time.RequestPause(true);
     Check(!time.IsPaused(), "Pause must wait for the frame boundary.");
-    Check(time.BeginFrame(0.3) == 0 && time.IsPaused(), "Paused frame ran ticks.");
+    Check(AdvanceFrame(time, 0.3) == 0 && time.IsPaused(), "Paused frame ran ticks.");
     Check(Near(time.RealTime(), 0.35) && Near(time.SimulationTime(), 0.0),
           "Pause must stop only simulation time.");
     time.RequestPause(false);
-    Check(time.BeginFrame(0.05) == 1, "Leftover time before pause was lost.");
+    Check(AdvanceFrame(time, 0.05) == 1, "Leftover time before pause was lost.");
 }
 
 void TestScaleAtBoundary()
@@ -131,17 +177,18 @@ void TestScaleAtBoundary()
     Time time(0.1, 100);
     time.RequestScale(2.0);
     Check(Near(time.Scale(), 1.0), "Scale must wait for the frame boundary.");
-    Check(time.BeginFrame(1.0) == 20, "Double speed must double the tick count.");
+    Check(AdvanceFrame(time, 1.0) == 20, "Double speed must double the tick count.");
     Check(Near(time.SimulationTime(), 2.0) && Near(time.RealTime(), 1.0), "Scaled time differs.");
 }
 
 void TestCatchUpLimit()
 {
     Time time(0.1, 3);
-    Check(time.BeginFrame(1.0) == 3, "Catch-up limit was not applied.");
-    Check(Near(time.DroppedTime(), 0.7), "Excess time was not recorded as dropped.");
-    Check(time.BeginFrame(0.0) == 0, "Dropped time was carried to the next frame.");
-    Check(Near(time.SimulationTime(), 0.3) && Near(time.RealTime(), 1.0), "Low FPS time differs.");
+    Check(AdvanceFrame(time, 1.05) == 3, "Catch-up limit was not applied.");
+    // 남은 0.75초는 tick 조각 0.05까지 모두 버린다.
+    Check(Near(time.DroppedTime(), 0.75), "Excess time was not recorded as dropped.");
+    Check(AdvanceFrame(time, 0.05) == 0, "Part of the dropped time was carried to the next frame.");
+    Check(Near(time.SimulationTime(), 0.3) && Near(time.RealTime(), 1.1), "Low FPS time differs.");
 }
 
 void TestInvalidValues()
@@ -181,6 +228,24 @@ void TestMovementFollowsTime()
     Check(Near(player.transform.position.z, 2.0), "Double speed: 0.5 seconds must move 1 unit.");
 }
 
+void TestDiagonalSpeed()
+{
+    Input input;
+    Time time(0.1, 3);
+    Scene scene;
+    GameObject& player = scene.CreateObject("diagonal");
+    player.AddComponent(std::make_unique<PlayerControl>(player, input, time, 1.0f));
+
+    input.OnKeyDown(Key::W);
+    input.OnKeyDown(Key::D);
+    for (int i = 0; i < 10; ++i)
+        RunFrame(time, input, scene, 0.1);
+    const double x = player.transform.position.x;
+    const double z = player.transform.position.z;
+    Check(Near(std::sqrt(x * x + z * z), 1.0) && Near(x, z),
+          "Diagonal movement must keep the same speed as straight movement.");
+}
+
 void TestTapInMultiTickFrame()
 {
     Input input;
@@ -205,18 +270,21 @@ int RunInputTimeTests()
     try
     {
         TestPressHoldRelease();
+        TestTickResultStaysFixed();
         TestShortTapKeptOnce();
         TestKeyRepeatIgnored();
         TestMouseDelta();
         TestFocusLost();
         TestTickAccumulation();
+        TestSimulationTimePerTick();
         TestPauseAtBoundary();
         TestScaleAtBoundary();
         TestCatchUpLimit();
         TestInvalidValues();
         TestMovementFollowsTime();
+        TestDiagonalSpeed();
         TestTapInMultiTickFrame();
-        std::cout << "Input/time tests PASS (12 cases)\n";
+        std::cout << "Input/time tests PASS (15 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

@@ -25,7 +25,7 @@ flowchart TD
 | 모듈 | 소유자 | 받는 것 | 내보내는 것 | 호출 시점 |
 | --- | --- | --- | --- | --- |
 | Input | Application | 키 누름·뗌, 마우스 이동, 포커스 상실 | tick 하나 동안 고정된 누름·유지·뗌과 마우스 변화량 | 수집은 프레임 중 언제든, 소비는 각 tick 시작에 한 번 |
-| Time | Application | 실제 경과 시간, 정지·배속 요청 | 이번 프레임의 tick 수, tick 길이, 실제·시뮬레이션 누적 시간, 버린 시간 | 프레임 시작에 BeginFrame 한 번 |
+| Time | Application | 실제 경과 시간, 정지·배속 요청, tick 종료 알림 | 이번 프레임의 tick 수, tick 길이, 실제·시뮬레이션 누적 시간, 버린 시간 | 프레임 시작에 BeginFrame 한 번, 각 tick 끝에 FinishTick 한 번 |
 | PlayerControl | Player GameObject | Input의 tick 결과, Time의 tick 길이 | Player Transform 변경, 공격 횟수 | 각 tick의 Scene.Update 안 |
 | Application | main | 데모 사건과 프레임 길이 | 위 모듈의 호출 순서 | 매 프레임 |
 
@@ -46,7 +46,8 @@ flowchart TD
     Consume --> Objects["3. Scene.Update"]
     Objects --> Anim["4. Animation placeholder"]
     Anim --> Coll["5. Collision placeholder"]
-    Coll --> Left
+    Coll --> Finish["Time.FinishTick: 시뮬레이션 시간 + tick 길이"]
+    Finish --> Left
     Left -->|아니오| Render["6. Render placeholder: 프레임당 한 번"]
 ```
 
@@ -88,7 +89,9 @@ Input은 두 쪽으로 나뉜다.
 ## Time 규칙
 
 - **실제 시간**: BeginFrame에 들어온 값의 합이다. 정지·배속과 관계없이 늘어난다.
-- **시뮬레이션 시간**: 실행한 tick 수 곱하기 tick 길이다. 게임 규칙은 이 시간만 쓴다.
+- **시뮬레이션 시간**: 마친 tick 수 곱하기 tick 길이다. 게임 규칙은 이 시간만 쓴다.
+- **tick 수 결정과 진행의 분리**: BeginFrame은 이번 프레임의 tick 수만 정한다. tick 하나를 마칠 때마다 FinishTick이 시뮬레이션 시간을 tick 길이만큼 늘린다. 그래서 tick 안에서 읽는 시뮬레이션 시간은 그 tick이 시작한 시각이다.
+- **호출 약속**: BeginFrame이 정한 tick을 모두 FinishTick으로 마친 뒤에 다음 BeginFrame을 부른다. 남은 tick이 있는데 BeginFrame을 부르거나, 남은 tick이 없는데 FinishTick을 부르면 예외로 바로 알린다.
 - **누적기**: 실제 시간에 배속을 곱해 쌓고, tick 길이만큼씩 꺼내 tick 수를 센다. 남은 조각은 다음 프레임으로 넘긴다.
 - **정지**: 누적기에 더하지 않는다. 이미 남은 조각은 그대로 둔다.
 - **배속**: tick 길이는 그대로 두고 tick 수가 바뀐다. 그래서 행동 Component는 늘 같은 길이로 계산한다.
@@ -108,7 +111,7 @@ Input은 두 쪽으로 나뉜다.
 
 ## 데모 시나리오와 기대 결과
 
-PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움직인다.
+PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움직인다. 대각선으로 움직일 때도 방향의 길이로 나눠 같은 속도를 지킨다.
 
 | 프레임 | 실제 시간 | 데모 사건 | 기대 tick 수 | 확인할 것 |
 | --- | --- | --- | --- | --- |
@@ -124,6 +127,7 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 
 - enum class: 키와 행동 이름을 숫자 대신 이름으로 쓴다. 다른 enum과 섞이지 않는다.
 - `static_cast<int>`: enum class 값을 배열 번호로 바꿀 때만 쓴다.
+- std::sqrt: 방향의 길이를 구한다. 대각선 이동 속도를 맞출 때만 쓴다.
 - const 참조 멤버: PlayerControl은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
 - 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time 멤버는 여기서 정해야 한다.
 - 멤버 선언 순서: 생성은 선언 순서, 정리는 반대 순서다.
@@ -132,8 +136,8 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 
 1. src/Application.cpp: 프레임과 tick의 반복, 수집·소비 위치.
 2. src/Input.h / Input.cpp: 수집·소비·읽기의 경계와 행동 표.
-3. src/Time.h / Time.cpp: 누적기, 적용 경계, 따라잡기 상한.
-4. src/PlayerControl.cpp: 입력과 시간을 읽는 행동 Component.
+3. src/Time.h / Time.cpp: 누적기, tick 수 결정과 진행의 분리, 적용 경계, 따라잡기 상한.
+4. src/PlayerControl.cpp: 입력과 시간을 읽는 행동 Component와 대각선 속도 보정.
 
 src/InputTimeTests.cpp는 위 규칙을 확인하는 검증 예제다.
 
@@ -171,15 +175,15 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 | --- | --- | --- |
 | NereidesEngine2.exe | 위 데모 표와 같은 tick 수와 위치, 종료 코드 0 | 두 구성 모두 일치, 종료 코드 0 |
 | NereidesEngine2.exe --lifecycle-tests | 단계 1 검증 5개 통과 | 두 구성 모두 PASS (5 cases) |
-| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 12개 통과 | 두 구성 모두 PASS (12 cases) |
+| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 15개 통과 | 두 구성 모두 PASS (15 cases) |
 
-입력·시간 검증 12개가 확인하는 것은 다음과 같다.
+입력·시간 검증 15개가 확인하는 것은 다음과 같다.
 
-- 누름·유지·뗌의 1회 전달, 짧은 입력 보관과 1회 소비, 키 자동 반복 무시, 마우스 변화량 합산과 1회 전달.
+- 누름·유지·뗌의 1회 전달, 다음 소비 전까지 고정되는 tick 결과, 짧은 입력 보관과 1회 소비, 키 자동 반복 무시, 마우스 변화량 합산과 1회 전달.
 - 포커스 상실 뒤 눌린 상태·사건·늦은 뗌 신호가 남지 않음.
-- 남은 시간 조각의 이월, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 버린 시간.
+- 남은 시간 조각의 이월, tick을 마칠 때마다 늘어나는 시뮬레이션 시간과 호출 순서 위반 거부, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 tick 조각까지 버리는 정책.
 - 잘못된 tick 길이·상한·배속·실제 시간 거부.
-- 정상·정지·2배속에서 Player 이동량, tick 3번인 프레임에서 짧은 입력의 공격 1회.
+- 정상·정지·2배속에서 Player 이동량, 대각선 이동 속도, tick 3번인 프레임에서 짧은 입력의 공격 1회.
 
 실제 창 메시지와 실제 시계는 아직 연결하지 않았다. 이 검증은 데모 사건과 정한 프레임 길이 기준이다.
 코드 검증 통과는 학생 이해 완료와 별개다.
