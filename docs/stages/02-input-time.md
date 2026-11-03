@@ -123,7 +123,7 @@ PlayerControl의 이동 속도는 초당 1이다. tick 하나에 0.1만큼 움�
 ## 꼭 필요한 문법만 읽기
 
 - enum class: 키와 행동 이름을 숫자 대신 이름으로 쓴다. 다른 enum과 섞이지 않는다.
-- static_cast&lt;int&gt;: enum class 값을 배열 번호로 바꿀 때만 쓴다.
+- `static_cast<int>`: enum class 값을 배열 번호로 바꿀 때만 쓴다.
 - const 참조 멤버: PlayerControl은 Input과 Time을 읽기만 한다. 소유하지 않고 바꾸지도 않는다.
 - 생성자 초기화 목록: 참조 멤버와 기본 생성자가 없는 Time 멤버는 여기서 정해야 한다.
 - 멤버 선언 순서: 생성은 선언 순서, 정리는 반대 순서다.
@@ -165,4 +165,21 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 
 ## 검증 기록
 
-구현 전 계약 문서다. 실행 결과는 구현 후 기록한다.
+2026-11-03, Windows 개발 PC의 VS2022 MSBuild로 Debug·Release x64를 다시 빌드했다. 경고 수준 4에서 경고 없이 성공했다.
+
+| 명령 | 기대 결과 | 실제 결과 |
+| --- | --- | --- |
+| NereidesEngine2.exe | 위 데모 표와 같은 tick 수와 위치, 종료 코드 0 | 두 구성 모두 일치, 종료 코드 0 |
+| NereidesEngine2.exe --lifecycle-tests | 단계 1 검증 5개 통과 | 두 구성 모두 PASS (5 cases) |
+| NereidesEngine2.exe --input-time-tests | 입력·시간 검증 12개 통과 | 두 구성 모두 PASS (12 cases) |
+
+입력·시간 검증 12개가 확인하는 것은 다음과 같다.
+
+- 누름·유지·뗌의 1회 전달, 짧은 입력 보관과 1회 소비, 키 자동 반복 무시, 마우스 변화량 합산과 1회 전달.
+- 포커스 상실 뒤 눌린 상태·사건·늦은 뗌 신호가 남지 않음.
+- 남은 시간 조각의 이월, 경계에서만 적용되는 정지와 배속, 따라잡기 상한과 버린 시간.
+- 잘못된 tick 길이·상한·배속·실제 시간 거부.
+- 정상·정지·2배속에서 Player 이동량, tick 3번인 프레임에서 짧은 입력의 공격 1회.
+
+실제 창 메시지와 실제 시계는 아직 연결하지 않았다. 이 검증은 데모 사건과 정한 프레임 길이 기준이다.
+코드 검증 통과는 학생 이해 완료와 별개다.
