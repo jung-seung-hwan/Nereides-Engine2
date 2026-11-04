@@ -11,9 +11,10 @@ public:
     void RequestPause(bool paused);
     void RequestScale(double scale);
 
-    // 프레임 경계. 실제 경과 시간을 받아 이번 프레임에 실행할 tick 수를 정해 돌려준다.
+    // 프레임 경계. 지난 프레임부터 흐른 실제 시간(deltaTime, 초)을 받아 이번 프레임에 실행할 tick 수를 정해 돌려준다.
+    // deltaTime은 정지·배속을 적용하기 전 값이다. 게임 코드는 이 값이 아니라 TickSeconds()를 쓴다.
     // 시뮬레이션 시간은 여기서 늘리지 않는다.
-    int BeginFrame(double realSeconds);
+    int BeginFrame(double deltaTime);
 
     // tick 하나를 마쳤음을 알린다. 시뮬레이션 시간이 tick 길이만큼 늘어난다.
     // 그래서 tick 안에서 읽는 SimulationTime은 그 tick이 시작한 시각이다.

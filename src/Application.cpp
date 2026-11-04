@@ -122,11 +122,12 @@ void Application::RunWindow()
         }
 
         // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
+        // 이 시간을 흔히 deltaTime이라 부른다. 정지·배속을 적용하기 전 값이고, 게임 코드는 이 값 대신 고정 tick 길이를 쓴다.
         const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-        const double realSeconds = std::chrono::duration<double>(now - last).count();
+        const double deltaTime = std::chrono::duration<double>(now - last).count();
         last = now;
 
-        const int tickCount = m_time.BeginFrame(realSeconds);
+        const int tickCount = m_time.BeginFrame(deltaTime);
         for (int tick = 1; tick <= tickCount; ++tick)
             RunTick(tick, tickCount);
 
@@ -200,10 +201,10 @@ void Application::ReadDemoInput(int frame)
 
 int Application::AdvanceDemoTime(int frame)
 {
-    const double realSeconds = DemoFrameSeconds[frame - 1];
-    const int tickCount = m_time.BeginFrame(realSeconds);
+    const double deltaTime = DemoFrameSeconds[frame - 1];
+    const int tickCount = m_time.BeginFrame(deltaTime);
 
-    std::cout << "  2. Time      real+" << realSeconds
+    std::cout << "  2. Time      real+" << deltaTime
               << " ticks=" << tickCount
               << " scale=" << m_time.Scale()
               << " paused=" << (m_time.IsPaused() ? "yes" : "no")

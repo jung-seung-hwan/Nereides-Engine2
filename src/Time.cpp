@@ -28,21 +28,21 @@ void Time::RequestScale(double scale)
     m_requestedScale = scale;
 }
 
-int Time::BeginFrame(double realSeconds)
+int Time::BeginFrame(double deltaTime)
 {
     // 호출 약속: 지난 프레임의 tick을 모두 마친 뒤에 다음 프레임을 시작한다.
     if (m_ticksLeft > 0)
         throw std::logic_error("Finish every tick before the next frame.");
-    if (realSeconds < 0.0)
+    if (deltaTime < 0.0)
         throw std::invalid_argument("Real elapsed time cannot be negative.");
 
     // 적용 경계: 이번 프레임의 tick은 모두 같은 정지·배속 값으로 실행된다.
     m_paused = m_requestedPaused;
     m_scale = m_requestedScale;
 
-    m_realTime += realSeconds;
+    m_realTime += deltaTime;
     if (!m_paused)
-        m_accumulated += realSeconds * m_scale;
+        m_accumulated += deltaTime * m_scale;
 
     int ticks = 0;
     while (m_accumulated + Epsilon >= m_tickSeconds && ticks < m_maxTicksPerFrame)

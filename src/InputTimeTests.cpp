@@ -22,18 +22,18 @@ bool Near(double a, double b)
 }
 
 // Time만 검사할 때 쓴다. 프레임의 tick을 정하고 모두 마친다.
-int AdvanceFrame(Time& time, double realSeconds)
+int AdvanceFrame(Time& time, double deltaTime)
 {
-    const int ticks = time.BeginFrame(realSeconds);
+    const int ticks = time.BeginFrame(deltaTime);
     for (int i = 0; i < ticks; ++i)
         time.FinishTick();
     return ticks;
 }
 
 // Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·갱신한 뒤 tick을 마친다.
-int RunFrame(Time& time, Input& input, Scene& scene, double realSeconds)
+int RunFrame(Time& time, Input& input, Scene& scene, double deltaTime)
 {
-    const int ticks = time.BeginFrame(realSeconds);
+    const int ticks = time.BeginFrame(deltaTime);
     for (int i = 0; i < ticks; ++i)
     {
         input.ConsumeForTick();
