@@ -45,16 +45,25 @@
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClInclude Include="src\Application.h" />
+    <ClCompile Include="src\Component.cpp" />
     <ClInclude Include="src\Component.h" />
     <ClCompile Include="src\GameObject.cpp" />
     <ClInclude Include="src\GameObject.h" />
+    <ClCompile Include="src\Input.cpp" />
+    <ClInclude Include="src\Input.h" />
+    <ClCompile Include="src\InputTimeTests.cpp" />
+    <ClInclude Include="src\InputTimeTests.h" />
     <ClCompile Include="src\LifecycleTests.cpp" />
     <ClInclude Include="src\LifecycleTests.h" />
     <ClCompile Include="src\LogComponent.cpp" />
     <ClInclude Include="src\LogComponent.h" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\PlayerControl.cpp" />
+    <ClInclude Include="src\PlayerControl.h" />
     <ClCompile Include="src\Scene.cpp" />
     <ClInclude Include="src\Scene.h" />
+    <ClCompile Include="src\Time.cpp" />
+    <ClInclude Include="src\Time.h" />
     <ClInclude Include="src\Transform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

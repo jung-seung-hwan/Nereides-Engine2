@@ -5,10 +5,15 @@
 #include <string>
 #include <vector>
 
+// Scene.h가 이 파일을 포함하므로, 여기서는 Scene이라는 이름만 알린다.
+class Scene;
+
 class GameObject
 {
 public:
-    explicit GameObject(const std::string& name);
+    // Scene::CreateObject만 이 생성자를 부른다. 직접 만들면 Scene이 소유하지 않아
+    // 갱신·정리되지 않고, Scene보다 오래 살면 GetScene이 끊어진 참조를 돌려준다.
+    GameObject(Scene& scene, const std::string& name);
     ~GameObject();
 
     // 소유 객체는 복사하지 않는다. Component의 owner 참조가 유지되어야 한다.
@@ -16,6 +21,8 @@ public:
     GameObject& operator=(const GameObject&) = delete;
 
     const std::string& GetName() const { return m_name; }
+    // 나를 소유한 Scene. Scene이 나보다 항상 오래 살므로 참조가 유효하다.
+    Scene& GetScene() const { return m_scene; }
     bool IsActive() const { return m_active; }
     void SetActive(bool active);
     void AddComponent(std::unique_ptr<Component> component);
@@ -28,6 +35,7 @@ public:
     Transform transform;
 
 private:
+    Scene& m_scene;
     std::string m_name;
     bool m_active = true;
     bool m_destroyRequested = false;
