@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "LogComponent.h"
 #include "PlayerControl.h"
+#include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -8,18 +9,42 @@
 
 namespace
 {
-// 데모 프레임마다 흐른 실제 시간(초). 창 루프가 생기면 실제로 잰 값으로 바뀐다.
+// 스크립트 데모는 단계 2와 같은 값을 쓴다. 같은 입력이면 같은 결과가 나와야 회귀 검사가 된다.
+// 데모 프레임마다 흐른 실제 시간(초).
 const double DemoFrameSeconds[] = {0.10, 0.05, 0.05, 0.10, 0.20, 1.00, 0.10};
-
-// 로그를 읽기 쉽게 tick을 크게 잡는다. 실제 게임은 보통 1/60초를 쓴다.
+// 로그를 읽기 쉽게 tick을 크게 잡는다.
 const double DemoTickSeconds = 0.1;
 const int DemoMaxTicksPerFrame = 3;
+
+// 창 모드는 실제 게임에서 흔히 쓰는 값을 쓴다.
+const double WindowTickSeconds = 1.0 / 60.0;
+const int WindowMaxTicksPerFrame = 5;
+const int WindowWidth = 960;
+const int WindowHeight = 540;
+// 창 모드의 위치 로그 간격. 30 tick은 0.5초다.
+const int WindowLogEveryTicks = 30;
+
 const float PlayerSpeed = 1.0f; // 초당 이동 거리
+
+double TickSecondsFor(RunMode mode)
+{
+    if (mode == RunMode::Demo)
+        return DemoTickSeconds;
+    return WindowTickSeconds;
+}
+
+int MaxTicksFor(RunMode mode)
+{
+    if (mode == RunMode::Demo)
+        return DemoMaxTicksPerFrame;
+    return WindowMaxTicksPerFrame;
+}
 }
 
 // Time과 Scene은 기본 생성자가 없으므로 초기화 목록에서 만든다.
-// Scene에는 앞에서 만든 Input과 Time을 넘긴다. 서비스 연결은 여기 한 곳뿐이다.
-Application::Application() : m_time(DemoTickSeconds, DemoMaxTicksPerFrame), m_scene(m_input, m_time)
+// Scene에는 앞에서 만든 Input과 Time을 넘긴다. Window와 Renderer는 Initialize에서 창 모드일 때만 만든다.
+Application::Application(RunMode mode)
+    : m_mode(mode), m_time(TickSecondsFor(mode), MaxTicksFor(mode)), m_scene(m_input, m_time)
 {
 }
 
@@ -27,38 +52,104 @@ void Application::Run()
 {
     std::cout << std::fixed << std::setprecision(2);
     Initialize();
-
-    const int frameCount = static_cast<int>(std::size(DemoFrameSeconds));
-    for (int frame = 1; frame <= frameCount; ++frame)
-    {
-        std::cout << "\nFrame " << frame << '\n';
-        ReadInput(frame);
-        const int tickCount = AdvanceTime(frame);
-        for (int tick = 1; tick <= tickCount; ++tick)
-            RunTick(tick, tickCount);
-        if (tickCount == 0)
-            std::cout << "  (no tick: collected input waits for the next tick)\n";
-        Render();
-    }
-
+    if (m_mode == RunMode::Window)
+        RunWindow();
+    else
+        RunDemo();
     Shutdown();
 }
 
 void Application::Initialize()
 {
-    std::cout << "Nereides Engine2 - Stage 2: input and time demo\n";
-    std::cout << "Input events and frame lengths are scripted. No window, clock, animation, collision, or DX11 yet.\n";
+    int logEveryTicks = 1;
+    if (m_mode == RunMode::Demo)
+    {
+        std::cout << "Nereides Engine2 - Stage 2: input and time demo\n";
+        std::cout << "Scripted input events and frame lengths. Run without arguments for the window mode.\n";
+    }
+    else
+    {
+        std::cout << "Nereides Engine2 - Stage 3-1: window and real-time loop\n";
+        std::cout << "W/A/S/D: move, Space: attack, mouse: turn. Close the window to quit.\n";
+        // 창을 먼저 만들어야 Renderer가 그 창에 스왑 체인을 붙일 수 있다.
+        // Renderer까지 만든 뒤에 창을 보여 준다.
+        m_window = std::make_unique<Window>(m_input, L"Nereides Engine2", WindowWidth, WindowHeight);
+        m_renderer = std::make_unique<Renderer>(m_window->GetHandle(), m_window->GetWidth(), m_window->GetHeight());
+        m_window->Show();
+        logEveryTicks = WindowLogEveryTicks;
+    }
+
     std::cout << "Initialize\n";
     GameObject& player = m_scene.CreateObject("Player");
     player.transform.position.x = -2;
-    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed));
+    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed, logEveryTicks));
     GameObject& kraken = m_scene.CreateObject("Kraken");
     kraken.transform.position.x = 2;
     kraken.AddComponent(std::make_unique<LogComponent>(kraken));
     kraken.SetActive(false);
 }
 
-void Application::ReadInput(int frame)
+void Application::RunWindow()
+{
+    bool wasMinimized = false;
+    std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+
+    // 1. 쌓인 창 메시지를 처리한다. 키·마우스는 이 안에서 Input에 수집된다.
+    while (m_window->ProcessMessages())
+    {
+        // 2. 창 상태를 반영한다. Window는 기록만 했고, 정지 요청과 크기 변경은 메시지 처리가 끝난 여기서 한다.
+        const bool minimized = m_window->IsMinimized();
+        if (minimized != wasMinimized)
+        {
+            // 최소화되면 정지를, 복원되면 재개를 요청한다. 다음 BeginFrame 시작에 적용된다.
+            m_time.RequestPause(minimized);
+            wasMinimized = minimized;
+            if (minimized)
+                std::cout << "Window minimized: game time paused\n";
+            else
+                std::cout << "Window restored: game time resumed\n";
+        }
+        if (m_window->TakeSizeChanged())
+            m_renderer->Resize(m_window->GetWidth(), m_window->GetHeight());
+
+        // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
+        const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        const double realSeconds = std::chrono::duration<double>(now - last).count();
+        last = now;
+
+        const int tickCount = m_time.BeginFrame(realSeconds);
+        for (int tick = 1; tick <= tickCount; ++tick)
+            RunTick(tick, tickCount);
+
+        // 4. 화면을 지우고 창에 보낸다. 최소화 중에는 보이는 화면이 없어 그리지 않는다.
+        if (minimized)
+        {
+            // Present의 기다림이 없으면 루프가 CPU를 다 쓰므로 잠깐 쉰다.
+            Sleep(10);
+            continue;
+        }
+        m_renderer->Clear(0.08f, 0.12f, 0.20f);
+        m_renderer->Present();
+    }
+}
+
+void Application::RunDemo()
+{
+    const int frameCount = static_cast<int>(std::size(DemoFrameSeconds));
+    for (int frame = 1; frame <= frameCount; ++frame)
+    {
+        std::cout << "\nFrame " << frame << '\n';
+        ReadDemoInput(frame);
+        const int tickCount = AdvanceDemoTime(frame);
+        for (int tick = 1; tick <= tickCount; ++tick)
+            RunTick(tick, tickCount);
+        if (tickCount == 0)
+            std::cout << "  (no tick: collected input waits for the next tick)\n";
+        PrintDemoRender();
+    }
+}
+
+void Application::ReadDemoInput(int frame)
 {
     std::cout << "  1. Input     [demo events]\n";
 
@@ -98,7 +189,7 @@ void Application::ReadInput(int frame)
     }
 }
 
-int Application::AdvanceTime(int frame)
+int Application::AdvanceDemoTime(int frame)
 {
     const double realSeconds = DemoFrameSeconds[frame - 1];
     const int tickCount = m_time.BeginFrame(realSeconds);
@@ -116,11 +207,16 @@ int Application::AdvanceTime(int frame)
 
 void Application::RunTick(int tick, int tickCount)
 {
+    // tick 단계 로그는 스크립트 데모에서만 쓴다. 창 모드에서는 초당 60번이라 너무 많다.
+    const bool showSteps = m_mode == RunMode::Demo;
+
     // tick 안의 시뮬레이션 시간은 이 tick이 시작한 시각이다.
-    std::cout << "  Tick " << tick << '/' << tickCount << " sim=" << m_time.SimulationTime() << '\n';
+    if (showSteps)
+        std::cout << "  Tick " << tick << '/' << tickCount << " sim=" << m_time.SimulationTime() << '\n';
     // tick마다 한 번 소비한다. 행동 Component는 이 결과만 읽는다.
     m_input.ConsumeForTick();
-    std::cout << "    3. Objects\n";
+    if (showSteps)
+        std::cout << "    3. Objects\n";
     m_scene.Update();
     UpdateAnimation();
     CheckCollision();
@@ -130,15 +226,17 @@ void Application::RunTick(int tick, int tickCount)
 
 void Application::UpdateAnimation()
 {
-    std::cout << "    4. Animation [placeholder]\n";
+    if (m_mode == RunMode::Demo)
+        std::cout << "    4. Animation [placeholder]\n";
 }
 
 void Application::CheckCollision()
 {
-    std::cout << "    5. Collision [placeholder]\n";
+    if (m_mode == RunMode::Demo)
+        std::cout << "    5. Collision [placeholder]\n";
 }
 
-void Application::Render()
+void Application::PrintDemoRender()
 {
     std::cout << "  6. Render    [placeholder] once per frame | sim=" << m_time.SimulationTime() << '\n';
 }

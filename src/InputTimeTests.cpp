@@ -282,7 +282,7 @@ void TestMovementFollowsTime()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("mover");
-    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f, 1));
 
     input.OnKeyDown(Key::W);
     for (int i = 0; i < 10; ++i)
@@ -307,7 +307,7 @@ void TestDiagonalSpeed()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("diagonal");
-    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f, 1));
 
     input.OnKeyDown(Key::W);
     input.OnKeyDown(Key::D);
@@ -325,7 +325,7 @@ void TestTapInMultiTickFrame()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("attacker");
-    auto control = std::make_unique<PlayerControl>(player, 1.0f);
+    auto control = std::make_unique<PlayerControl>(player, 1.0f, 1);
     PlayerControl* borrowed = control.get();
     player.AddComponent(std::move(control));
 

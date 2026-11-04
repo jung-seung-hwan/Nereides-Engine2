@@ -33,8 +33,9 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <Link><SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation></Link>
+    <Link><SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
     <ClCompile><Optimization>Disabled</Optimization><RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
@@ -60,11 +61,17 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\PlayerControl.cpp" />
     <ClInclude Include="src\PlayerControl.h" />
+    <ClCompile Include="src\Renderer.cpp" />
+    <ClInclude Include="src\Renderer.h" />
     <ClCompile Include="src\Scene.cpp" />
     <ClInclude Include="src\Scene.h" />
     <ClCompile Include="src\Time.cpp" />
     <ClInclude Include="src\Time.h" />
     <ClInclude Include="src\Transform.h" />
+    <ClCompile Include="src\Window.cpp" />
+    <ClInclude Include="src\Window.h" />
+    <ClCompile Include="src\WindowTests.cpp" />
+    <ClInclude Include="src\WindowTests.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
