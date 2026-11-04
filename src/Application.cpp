@@ -98,8 +98,11 @@ void Application::RunWindow()
     // 1. 쌓인 창 메시지를 처리한다. 키·마우스는 이 안에서 Input에 수집된다.
     while (m_window->ProcessMessages())
     {
-        // 2. 창 상태를 반영한다. Window는 기록만 했고, 정지 요청과 크기 변경은 메시지 처리가 끝난 여기서 한다.
+        // 2. 창 상태를 반영한다. Window는 기록만 했고, 크기 변경과 정지 요청은 메시지 처리가 끝난 여기서 한다.
         const bool minimized = m_window->IsMinimized();
+        // 최소화 중에는 스왑 체인 크기를 바꾸지 않는다. 바뀐 크기는 기록에 남겨 두었다가 복원한 뒤 반영한다.
+        if (!minimized && m_window->TakeSizeChanged())
+            m_renderer->Resize(m_window->GetWidth(), m_window->GetHeight());
         if (minimized != wasMinimized)
         {
             // 최소화되면 정지를, 복원되면 재개를 요청한다. 다음 BeginFrame 시작에 적용된다.
@@ -113,12 +116,10 @@ void Application::RunWindow()
             {
                 std::cout << "Window restored: game time resumed\n";
                 // 복원한 프레임은 시계 기준을 다시 잡는다. 최소화 동안 흐른 시간이 이동으로 나타나지 않게 한다.
+                // 크기 변경을 마친 뒤에 잡아서, 복원하며 걸린 시간도 tick에 넣지 않는다.
                 last = std::chrono::steady_clock::now();
             }
         }
-        // 최소화 중에는 스왑 체인 크기를 바꾸지 않는다. 바뀐 크기는 기록에 남겨 두었다가 복원한 뒤 반영한다.
-        if (!minimized && m_window->TakeSizeChanged())
-            m_renderer->Resize(m_window->GetWidth(), m_window->GetHeight());
 
         // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
         const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();

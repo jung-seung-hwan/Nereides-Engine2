@@ -29,7 +29,7 @@ Window는 Win32 창과 메시지 처리를 맡는다. OS 키 코드를 Key로 �
 
 ## 상태
 
-- 코드: 진행
+- 코드: 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 창 모드 확인 통과, PR 검토 대기
 - 학생 이해: 미확인
 - 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/4; PR·학생 답변: 아직 없음
 - 구조 문서: [03-1. Win32 창과 DX11 장치, 실시간 루프](../stages/03-1-window-loop.md)

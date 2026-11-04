@@ -8,9 +8,10 @@ namespace
 const wchar_t* const ClassName = L"NereidesEngine2Window";
 
 // Win32 함수가 실패하면 OS가 남긴 오류 번호를 함께 담아 예외를 던진다.
-void ThrowLastError(const char* action)
+// 오류 번호는 다른 일을 하기 전에 실패 직후 읽어서 넘긴다. 문자열을 만드는 동안 값이 바뀔 수 있기 때문이다.
+void ThrowWin32Error(const char* action, DWORD error)
 {
-    throw std::runtime_error(std::string(action) + " failed. GetLastError " + std::to_string(GetLastError()));
+    throw std::runtime_error(std::string(action) + " failed. GetLastError " + std::to_string(error));
 }
 
 struct KeyBinding
@@ -62,8 +63,12 @@ Window::Window(Input& input, const wchar_t* title, int width, int height)
     windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     windowClass.lpszClassName = ClassName;
     // 시험처럼 창을 여러 번 만들면 두 번째부터는 이미 등록돼 있다. 그것은 실패가 아니다.
-    if (RegisterClassExW(&windowClass) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
-        ThrowLastError("RegisterClassExW");
+    if (RegisterClassExW(&windowClass) == 0)
+    {
+        const DWORD error = GetLastError();
+        if (error != ERROR_CLASS_ALREADY_EXISTS)
+            ThrowWin32Error("RegisterClassExW", error);
+    }
 
     // 제목 줄과 테두리를 더해, 안쪽 영역이 width x height가 되는 창 크기를 구한다.
     const DWORD style = WS_OVERLAPPEDWINDOW;
@@ -75,7 +80,7 @@ Window::Window(Input& input, const wchar_t* title, int width, int height)
                                bounds.right - bounds.left, bounds.bottom - bounds.top,
                                nullptr, nullptr, instance, this);
     if (m_handle == nullptr)
-        ThrowLastError("CreateWindowExW");
+        ThrowWin32Error("CreateWindowExW", GetLastError());
 }
 
 Window::~Window()
