@@ -32,3 +32,4 @@ Window는 Win32 창과 메시지 처리를 맡는다. OS 키 코드를 Key로 �
 - 코드: 진행
 - 학생 이해: 미확인
 - 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/4; PR·학생 답변: 아직 없음
+- 구조 문서: [03-1. Win32 창과 DX11 장치, 실시간 루프](../stages/03-1-window-loop.md)
