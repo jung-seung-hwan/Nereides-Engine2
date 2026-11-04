@@ -1,50 +1,52 @@
 # Nereides Engine2
 
-C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 만드는 DX11 엔진 학습 프로젝트다. 최종 목표는 **캐릭터 한 명과 3D 크라켄 한 마리가 싸우는 작은 프로토타입**이다.
+C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 만드는 DX11 엔진 학습 프로젝트다.
+최종 목표는 캐릭터 한 명과 3D 크라켄 한 마리가 싸우는 작은 프로토타입이다.
 
-기존 Nereides 구현과 별도 프로젝트로 운영한다. 현재 작업 브랜치에는 단계 0의 콘솔 실행 골격이 있다. 실제 입력·시간·애니메이션·충돌·DX11은 아직 구현하지 않았다.
+## 현재 학습: 단계 1
 
-## 먼저 읽을 문서
+Scene이 GameObject를 소유하고, GameObject가 Transform과 Component를 관리한다.
+Player와 Kraken을 생성해 Component 갱신과 정리 순서를 콘솔로 확인한다.
+실제 입력·시간·애니메이션·충돌·DX11은 아직 구현하지 않았다.
 
-1. [전체 구조](docs/architecture.md): 책임, 소유 관계, 한 프레임의 흐름.
-2. [학습 로드맵](docs/roadmap.md): 단계별 결과물과 검증 기준.
-3. [에이전트 규칙](AGENTS.md): 코드 작성·GitHub 운영·학습 기록 원칙.
-4. [첫 작업 지시](docs/agent-task.md): 구조와 실행 골격부터 시작하는 에이전트 작업.
+1. [전체 목표 구조](docs/architecture.md)
+2. [이번 단계: 객체와 컴포넌트 수명](docs/stages/01-lifecycle.md)
+3. [학습 로드맵](docs/roadmap.md) / [실제 GitHub 이슈 목록](docs/github-issues.md)
+4. [에이전트 규칙](AGENTS.md)
 
-## 구현 범위
-
-- Windows / C++ / DirectX 11.
-- Scene 하나에 GameObject를 배치하고, GameObject에 Component를 붙인다.
-- 입력, 시간, 객체 수명, 모델·애니메이션, 충돌, 화면 출력을 작은 단계로 연결한다.
-- 최종 전투는 캐릭터 행동 하나와 크라켄 공격 하나부터 시작한다.
-- 리플렉션, 범용 ECS, 범용 RHI, 복잡한 템플릿, 씬 에디터는 초기 범위에서 제외한다.
-
-처음부터 엔진 전체를 구현하지 않는다. 구조를 먼저 설명하고, 최소 골격의 호출 순서 로그로 관계를 확인한 뒤 각 모듈 내부를 채운다.
-
-## GitHub에서 진행하는 방법
-
-`docs/issues/`의 초안을 실제 GitHub 이슈로 등록한다. 각 이슈에는 **구현 상태**와 **학생 이해 상태**를 따로 기록한다. 이슈 하나에 브랜치 하나와 PR 하나를 연결한다.
-
-에이전트는 할당된 단계의 코드·검증·학습 안내와 draft PR을 준비한다. 학생은 구조 설명과 작은 변형 과제를 수행한다. 교수는 구조와 범위를 리뷰하는 역할을 권장한다. 실제 권한과 병합 절차는 사용자가 정한다.
-
-문서가 존재하는 것만으로 에이전트가 실행되지는 않는다. 에이전트 실행 시 [작업 지시](docs/agent-task.md)를 명시적으로 전달해야 한다.
-
-## 현재 상태
-
-- 학습 운영 초안: 준비됨.
-- 단계 0 코드: 구현 및 로컬 검증 완료, PR 검토 대상.
-- 빌드·실행 검증: Windows / VS2022 Debug·Release 빌드와 3프레임 실행 성공. [실행 안내](docs/stages/00-execution.md)를 따른다.
-- 학생 이해: 미확인.
-- GitHub 이슈: [단계별 이슈 목록](docs/github-issues.md)에 등록됨. 첫 구현은 별도 PR로 검토한다.
+단계 0의 실행 순서 학습은 [이전 단계 문서](docs/stages/00-execution.md)에서 확인한다.
+단계별 과거 기록과 현재 구현 범위를 구분한다.
 
 ## Visual Studio에서 실행
 
-1. 저장소 루트의 NereidesEngine2.sln을 Visual Studio 2022에서 연다.
-2. Debug 또는 Release / x64를 선택한다.
-3. NereidesEngine2를 시작 프로젝트로 설정하고 Ctrl+F5를 누른다.
+1. Visual Studio 2022의 C++ 데스크톱 개발 도구(v143)와 Windows SDK를 준비한다.
+2. 저장소 루트의 NereidesEngine2.sln을 연다.
+3. Debug 또는 Release / x64를 선택한다.
+4. NereidesEngine2를 시작 프로젝트로 설정하고 Ctrl+F5를 누른다.
 
-C++ 데스크톱 개발 도구(v143)와 Windows SDK가 필요하다.
-새 소스 파일은 Visual Studio의 프로젝트에 추가하고 .vcxproj와 .filters도 함께 커밋한다.
-.sln과 .vcxproj는 직접 관리하며 CMake 생성 과정은 사용하지 않는다.
-실행 파일은 bin/x64/<구성>/NereidesEngine2.exe에 생성된다.
-기존 build 폴더는 이전 생성물이므로 새 작업에서는 루트의 솔루션을 연다.
+실행 파일은 bin/x64/<구성>/NereidesEngine2.exe다.
+소스 파일은 Visual Studio 프로젝트에 추가하고 .vcxproj와 .filters도 함께 커밋한다.
+.sln과 .vcxproj를 직접 관리한다. 이전 build 폴더의 생성된 솔루션은 사용하지 않는다.
+
+## 실행 검증
+
+Developer PowerShell for VS 2022:
+
+```powershell
+msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
+./bin/x64/Debug/NereidesEngine2.exe
+./bin/x64/Debug/NereidesEngine2.exe --lifecycle-tests
+```
+
+Release도 같은 명령의 Debug를 Release로 바꾸어 검사한다.
+GitHub Actions가 두 구성의 빌드, 예제 실행, 수명 검증을 수행한다.
+
+## 학습 운영
+
+이슈 하나 → 작업 브랜치 하나 → PR 하나로 진행한다.
+코드 검증과 학생 이해 확인은 별도 상태다. 학생은 PR에 구조 설명과 작은 변형 과제 결과를 남긴다.
+에이전트는 실제로 확인한 결과만 기록하고 학생 답변·교수 승인을 대신 작성하지 않는다.
+
+현재 단계 1은 로컬 Debug·Release 빌드와 수명 검증 5개를 통과했다. 학생 이해는 미확인이다.
+리플렉션, 복잡한 템플릿, 자동 등록, 범용 ECS/RHI, 씬 에디터는 추가하지 않는다.
+지침 파일만으로 에이전트가 자동 실행되지는 않는다. 다음 단계는 별도로 할당한다.
