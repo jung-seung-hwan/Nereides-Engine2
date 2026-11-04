@@ -25,6 +25,6 @@ Scene이 GameObject를, GameObject가 Component를 소유한다. Component의 �
 
 ## 상태
 
-- 코드: 로컬 Debug·Release 빌드·수명 검증 5개 통과, PR 검토 대기
-- 학생 이해: 미확인
-- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/2; 학생 답변: 아직 없음
+- 코드: 검증 완료. 로컬 Debug·Release 빌드·수명 검증 5개와 CI 통과, PR 검토 대기
+- 학생 이해: 학생 설명 제출, 담당자 확인 전
+- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/2; 학생 답변: 질문 3개와 변형 과제 설명, https://github.com/jung-seung-hwan/kraken-engine-learning/pull/10#issuecomment-6593274840
