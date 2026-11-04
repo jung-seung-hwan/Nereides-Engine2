@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <thread>
 
 namespace
 {
@@ -105,11 +106,18 @@ void Application::RunWindow()
             m_time.RequestPause(minimized);
             wasMinimized = minimized;
             if (minimized)
+            {
                 std::cout << "Window minimized: game time paused\n";
+            }
             else
+            {
                 std::cout << "Window restored: game time resumed\n";
+                // 복원한 프레임은 시계 기준을 다시 잡는다. 최소화 동안 흐른 시간이 이동으로 나타나지 않게 한다.
+                last = std::chrono::steady_clock::now();
+            }
         }
-        if (m_window->TakeSizeChanged())
+        // 최소화 중에는 스왑 체인 크기를 바꾸지 않는다. 바뀐 크기는 기록에 남겨 두었다가 복원한 뒤 반영한다.
+        if (!minimized && m_window->TakeSizeChanged())
             m_renderer->Resize(m_window->GetWidth(), m_window->GetHeight());
 
         // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
@@ -125,7 +133,7 @@ void Application::RunWindow()
         if (minimized)
         {
             // Present의 기다림이 없으면 루프가 CPU를 다 쓰므로 잠깐 쉰다.
-            Sleep(10);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
         m_renderer->Clear(0.08f, 0.12f, 0.20f);

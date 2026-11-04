@@ -92,6 +92,12 @@ void TestRepeatSignalIgnoredAfterFocusLoss()
     input.ConsumeForTick();
     Check(input.IsHeld(Action::MoveForward), "W must be held before the focus is lost.");
 
+    // 키를 누르고 있는 동안 오는 자동 반복 신호는 새 누름이 아니다.
+    SendKeyDown(window, 'W', true);
+    input.ConsumeForTick();
+    Check(!input.IsPressed(Action::MoveForward) && input.IsHeld(Action::MoveForward),
+          "A repeat signal while W is held must not press W again.");
+
     // 포커스를 잃은 뒤 키를 누른 채 돌아오면 OS는 자동 반복 신호를 보낸다.
     SendFocusLost(window);
     SendKeyDown(window, 'W', true);
@@ -113,11 +119,13 @@ void TestUnmappedKeysIgnored()
     SendKeyDown(window, 'Q', false);
     SendKeyDown(window, VK_SHIFT, false);
     SendKeyDown(window, VK_RETURN, false);
+    // Alt를 누른 채 누른 키는 WM_SYSKEYDOWN으로 온다. OS에 맡기므로 W라도 Input에 들어가지 않는다.
+    SendMessageW(window.GetHandle(), WM_SYSKEYDOWN, 'W', 0);
     input.ConsumeForTick();
     for (const KeyCase& keyCase : KeyCases)
     {
         Check(!input.IsPressed(keyCase.action) && !input.IsHeld(keyCase.action),
-              std::string("Unmapped keys must not press ") + keyCase.name + ".");
+              std::string("Unmapped keys and Alt keys must not press ") + keyCase.name + ".");
     }
 }
 
@@ -130,10 +138,12 @@ void TestMouseMoveBecomesDelta()
     input.ConsumeForTick();
     Check(input.MouseDeltaX() == 0 && input.MouseDeltaY() == 0, "The first move must only set the reference point.");
 
+    // 오른쪽·위로 갔다가 왼쪽·위로 간다. 차이는 음수까지 그대로 더해진다.
     SendMouseMove(window, 110, 95);
-    SendMouseMove(window, 115, 95);
+    SendMouseMove(window, 95, 90);
     input.ConsumeForTick();
-    Check(input.MouseDeltaX() == 15 && input.MouseDeltaY() == -5, "Mouse moves must add up as differences.");
+    Check(input.MouseDeltaX() == -5 && input.MouseDeltaY() == -10,
+          "Mouse moves must add up as differences, negative ones included.");
 }
 
 void TestMouseReferenceResetAfterFocusLossAndLeave()
@@ -200,6 +210,22 @@ void TestCloseRequestKeepsWindowUntilDestroyed()
     }
     Check(IsWindow(handle) == FALSE, "Destroying the Window object must destroy the window.");
 }
+
+void TestQueuedMessagesGoThroughProcessMessages()
+{
+    Input input;
+    Window window(input, L"window test", 320, 240);
+
+    // 실제 키 메시지는 메시지 큐에 쌓였다가 ProcessMessages가 꺼내 WindowProc에 넘긴다.
+    PostMessageW(window.GetHandle(), WM_KEYDOWN, 'D', 0);
+    input.ConsumeForTick();
+    Check(!input.IsPressed(Action::MoveRight), "A queued message must wait until ProcessMessages runs.");
+
+    Check(window.ProcessMessages(), "Processing key messages must keep the loop running.");
+    input.ConsumeForTick();
+    Check(input.IsPressed(Action::MoveRight) && input.IsHeld(Action::MoveRight),
+          "ProcessMessages must deliver the queued key to Input.");
+}
 }
 
 int RunWindowTests()
@@ -213,7 +239,8 @@ int RunWindowTests()
         TestMouseReferenceResetAfterFocusLossAndLeave();
         TestSizeAndMinimizeRecorded();
         TestCloseRequestKeepsWindowUntilDestroyed();
-        std::cout << "Window message tests PASS (7 cases)\n";
+        TestQueuedMessagesGoThroughProcessMessages();
+        std::cout << "Window message tests PASS (8 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

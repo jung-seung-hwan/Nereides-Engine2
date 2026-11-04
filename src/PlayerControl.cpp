@@ -54,11 +54,13 @@ void PlayerControl::Update()
     if (attacked)
         ++m_attackCount;
 
-    // 위치 로그는 정한 간격마다 쓴다. 공격한 tick은 간격과 상관없이 바로 쓴다.
+    // 위치 로그는 정한 간격마다 쓴다. 공격한 tick은 간격과 상관없이 바로 쓰지만, 정기 로그의 간격은 밀지 않는다.
     ++m_ticksSinceLog;
-    if (!attacked && m_ticksSinceLog < m_logEveryTicks)
+    const bool regularLog = m_ticksSinceLog >= m_logEveryTicks;
+    if (regularLog)
+        m_ticksSinceLog = 0;
+    if (!regularLog && !attacked)
         return;
-    m_ticksSinceLog = 0;
 
     std::cout << "      " << GetOwner().GetName()
               << " x=" << transform.position.x

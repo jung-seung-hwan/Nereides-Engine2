@@ -26,6 +26,8 @@ public:
 
 private:
     void CreateBackBufferView();
+    // 장치를 다시 만들기 전에 들고 있던 DX11 객체를 모두 놓는다. 선언의 반대 순서로 놓는다.
+    void ReleaseDeviceObjects();
 
     // ComPtr은 DX11 객체의 참조 수를 대신 관리한다. 멤버가 정리될 때 자동으로 놓아 준다.
     // 선언 순서대로 만들고 반대 순서로 정리한다. 화면 대상이 가장 먼저, 장치가 가장 나중에 정리된다.

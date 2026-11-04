@@ -8,7 +8,7 @@ class PlayerControl : public Component
 {
 public:
     // logEveryTicks: 위치 로그를 몇 tick마다 쓸지 정한다. 1이면 tick마다 쓴다. 1보다 작으면 예외를 던진다.
-    // 공격한 tick은 간격과 상관없이 바로 쓴다.
+    // 공격한 tick은 간격과 상관없이 바로 쓴다. 이때도 정기 로그의 간격은 그대로 유지된다.
     PlayerControl(GameObject& owner, float speed, int logEveryTicks);
     void Update() override;
     int AttackCount() const { return m_attackCount; }

@@ -1,10 +1,17 @@
 #include "Window.h"
 #include <stdexcept>
+#include <string>
 #include <windowsx.h>
 
 namespace
 {
 const wchar_t* const ClassName = L"NereidesEngine2Window";
+
+// Win32 함수가 실패하면 OS가 남긴 오류 번호를 함께 담아 예외를 던진다.
+void ThrowLastError(const char* action)
+{
+    throw std::runtime_error(std::string(action) + " failed. GetLastError " + std::to_string(GetLastError()));
+}
 
 struct KeyBinding
 {
@@ -36,6 +43,7 @@ bool ToKey(WPARAM virtualKey, Key& key)
 
 // WM_KEYDOWN의 lParam 30번 비트는 이 메시지 전에 키가 이미 눌려 있었으면 1이다.
 // 키를 오래 누를 때 OS가 반복해서 보내는 신호다.
+// 0x40000000은 2의 30제곱, 곧 30번 비트만 1인 값이다. &로 그 비트만 남겨 0인지 본다.
 bool IsRepeatSignal(LPARAM lParam)
 {
     return (lParam & 0x40000000) != 0;
@@ -55,7 +63,7 @@ Window::Window(Input& input, const wchar_t* title, int width, int height)
     windowClass.lpszClassName = ClassName;
     // 시험처럼 창을 여러 번 만들면 두 번째부터는 이미 등록돼 있다. 그것은 실패가 아니다.
     if (RegisterClassExW(&windowClass) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
-        throw std::runtime_error("RegisterClassExW failed.");
+        ThrowLastError("RegisterClassExW");
 
     // 제목 줄과 테두리를 더해, 안쪽 영역이 width x height가 되는 창 크기를 구한다.
     const DWORD style = WS_OVERLAPPEDWINDOW;
@@ -67,7 +75,7 @@ Window::Window(Input& input, const wchar_t* title, int width, int height)
                                bounds.right - bounds.left, bounds.bottom - bounds.top,
                                nullptr, nullptr, instance, this);
     if (m_handle == nullptr)
-        throw std::runtime_error("CreateWindowExW failed.");
+        ThrowLastError("CreateWindowExW");
 }
 
 Window::~Window()
@@ -124,6 +132,7 @@ LRESULT CALLBACK Window::WindowProc(HWND handle, UINT message, WPARAM wParam, LP
 LRESULT Window::HandleMessage(HWND handle, UINT message, WPARAM wParam, LPARAM lParam)
 {
     // 이 함수 안에서는 예외를 던지지 않는다. 예외가 OS 코드를 거쳐 빠져나가면 안전하지 않다.
+    // Input 함수는 잘못된 Key를 받을 때만 예외를 던진다. 여기서는 KeyTable에 있는 Key만 넘기므로 던지지 않는다.
     Key key = Key::W;
     switch (message)
     {

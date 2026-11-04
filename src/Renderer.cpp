@@ -20,6 +20,8 @@ void ThrowIfFailed(HRESULT result, const char* action)
 HRESULT CreateDeviceAndSwapChain(D3D_DRIVER_TYPE driverType, UINT flags, const DXGI_SWAP_CHAIN_DESC& desc,
                                  IDXGISwapChain** swapChain, ID3D11Device** device, ID3D11DeviceContext** context)
 {
+    // 기능 수준은 11_0만 받는다. 단계 3-2의 셰이더가 셰이더 모델 5.0을 쓰려면 11_0이 필요하다.
+    // 11_0을 지원하지 않는 그래픽 하드웨어라면 WARP로 넘어간다. WARP는 11_0을 지원한다.
     const D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
     return D3D11CreateDeviceAndSwapChain(nullptr, driverType, nullptr, flags, &featureLevel, 1, D3D11_SDK_VERSION,
                                          &desc, swapChain, device, nullptr, context);
@@ -50,6 +52,8 @@ Renderer::Renderer(HWND window, int width, int height)
     HRESULT result = E_FAIL;
     for (D3D_DRIVER_TYPE driverType : driverTypes)
     {
+        // 실패한 앞 시도가 남긴 객체가 있으면 먼저 놓는다. GetAddressOf는 들고 있던 객체를 놓지 않고 자리만 넘긴다.
+        ReleaseDeviceObjects();
         result = CreateDeviceAndSwapChain(driverType, flags, desc, m_swapChain.GetAddressOf(),
                                           m_device.GetAddressOf(), m_context.GetAddressOf());
         // 디버그 계층이 설치되지 않은 PC다. 이 경우에만 디버그 계층을 끄고 다시 만든다.
@@ -57,6 +61,7 @@ Renderer::Renderer(HWND window, int width, int height)
         {
             std::cout << "DX11 debug layer is not installed. Creating the device without it.\n";
             flags = 0;
+            ReleaseDeviceObjects();
             result = CreateDeviceAndSwapChain(driverType, flags, desc, m_swapChain.GetAddressOf(),
                                               m_device.GetAddressOf(), m_context.GetAddressOf());
         }
@@ -74,6 +79,7 @@ Renderer::Renderer(HWND window, int width, int height)
         std::cout << "DX11 device: graphics hardware\n";
 
     // Alt+Enter 전체 화면 전환을 끈다. 전체 화면은 이번 범위가 아니다.
+    // IID_PPV_ARGS는 받을 자리의 주소와 그 자리에 들어갈 COM 형식의 번호를 함께 넘겨 주는 매크로다.
     Microsoft::WRL::ComPtr<IDXGIFactory> factory;
     ThrowIfFailed(m_swapChain->GetParent(IID_PPV_ARGS(factory.GetAddressOf())), "IDXGISwapChain::GetParent");
     ThrowIfFailed(factory->MakeWindowAssociation(window, DXGI_MWA_NO_ALT_ENTER), "MakeWindowAssociation");
@@ -91,8 +97,20 @@ void Renderer::CreateBackBufferView()
                   "CreateRenderTargetView");
 }
 
+void Renderer::ReleaseDeviceObjects()
+{
+    m_backBufferView.Reset();
+    m_swapChain.Reset();
+    m_context.Reset();
+    m_device.Reset();
+}
+
 void Renderer::Resize(int width, int height)
 {
+    // 크기가 0인 버퍼는 만들 수 없다. 최소화된 창의 크기는 Window와 Application이 미리 거른다.
+    if (width <= 0 || height <= 0)
+        throw std::invalid_argument("Renderer::Resize needs a positive width and height.");
+
     // 화면 대상이 버퍼를 붙잡고 있으면 버퍼 크기를 바꿀 수 없다.
     // 그리기 단계에서 풀고, 놓고, 놓은 것을 장치가 바로 정리하게 한다.
     m_context->OMSetRenderTargets(0, nullptr, nullptr);
