@@ -38,7 +38,7 @@ flowchart TB
 | 모듈 | 받는 것 | 내보내는 것 |
 | --- | --- | --- |
 | Input | 키·마우스 메시지 | 다음 tick에서 소비할 입력 |
-| Time | 실제 경과 시간, 정지·배속 요청 | 이번 tick이 진행할 시간 |
+| Time | 실제 경과 시간, 정지·배속 요청 | 이번 프레임의 tick 수, tick 하나의 고정 시간(`FixedDeltaTime()`), 이번 프레임의 게임 시간(`DeltaTime()`) |
 | Scene / GameObject | 생성·변경·삭제 요청 | 현재 객체, 위치, Component 상태 |
 | Animator / Timeline | 클립, 재생 요청, 시간 | 뼈 자세, 재생 위치, 통과한 마커·구간 |
 | CollisionWorld | 판정체의 위치·형상·활성 구간 | 접촉 대상과 시점 |
@@ -49,7 +49,7 @@ flowchart TB
 
 ## 한 프레임의 흐름
 
-화살표는 실행 순서다. 렌더 프레임 하나에서 고정 tick은 0회 이상 실행될 수 있다.
+화살표는 실행 순서다. 렌더 프레임 하나에서 고정 tick은 0회 이상 실행될 수 있다. tick마다 컴포넌트의 FixedUpdate가 돌고, 모든 tick이 끝나면 프레임마다 한 번 Update가 돈다. 유니티와 같은 순서다.
 
 ```mermaid
 flowchart TD
@@ -57,14 +57,15 @@ flowchart TD
     Messages --> Clock["경과 시간 측정과 tick 수 결정"]
     Clock --> Tick{"실행할 tick이 남았나?"}
     Tick -->|예| Consume["이번 tick의 입력 소비"]
-    Consume --> Logic["행동 Component 갱신"]
+    Consume --> Logic["행동 Component의 FixedUpdate"]
     Logic --> Animation["애니메이션과 타임라인 진행"]
     Animation --> Shapes["뼈·부착물·판정체 갱신"]
     Shapes --> Contact["충돌과 활성 구간 검사"]
     Contact --> Results["결과·이벤트 전달"]
     Results --> Lifetime["예약 생성·삭제 처리"]
     Lifetime --> Tick
-    Tick -->|아니오| Snapshot["현재 장면의 렌더 데이터 수집"]
+    Tick -->|아니오| Update["Component의 Update: 프레임마다 한 번, 화면 연출"]
+    Update --> Snapshot["현재 장면의 렌더 데이터 수집"]
     Snapshot --> Render["DX11 출력"]
     Render --> End["다음 프레임 또는 종료"]
 ```
@@ -72,6 +73,7 @@ flowchart TD
 ## 꼭 지켜야 할 연결 계약
 
 - 입력 수집과 소비를 나눈다. tick 사이의 짧은 입력을 보관하고 한 번만 전달한다.
+- 게임 상태는 고정 간격의 FixedUpdate에서만 바꾼다. 프레임마다 도는 Update는 화면 연출만 맡고 Transform을 바꾸지 않는다. 누름·뗌 입력도 FixedUpdate에서만 읽는다.
 - 애니메이션과 판정 구간은 같은 시뮬레이션 시간 기준을 사용한다.
 - 한 tick에 시작·종료 마커가 모두 지나가도 그 사이의 판정 구간을 검사한다.
 - 갱신 도중 객체를 즉시 삭제하지 않는다. 삭제 예약 후 안전한 경계에서 정리한다.
@@ -84,9 +86,10 @@ flowchart TD
 
 | 항목 | 처음 설계 | 지금 구현 | 이유와 다시 볼 시점 |
 | --- | --- | --- | --- |
-| 입력·시간 전달 | Input·Time을 FrameContext로 묶어 World에 전달 | Scene이 읽기 전용 Input·Time을 갖고, 컴포넌트가 소유자 GameObject를 거쳐 읽는다 | Update 모양을 유지하고 이미 배운 소유 관계를 따라간다. World가 tick 환경을 갖는 방향은 같다. Scene이 알려 주는 서비스는 Input·Time 두 개뿐이고, 컴포넌트가 그 밖에 Scene에서 쓰는 것은 객체 생성과 정리 요청뿐이다. 다른 서비스가 필요해지면 이 결정을 다시 본다 |
+| 컴포넌트 갱신 | 컴포넌트 로직은 고정 tick에서만 돈다. 유니티에서는 GameObject–Component 관계만 참고한다 | 고정 간격으로 도는 FixedUpdate와 프레임마다 한 번 도는 Update로 나눈다. 창 모드의 고정 간격은 0.02초다 | 단계 3-3에서 학생이 유니티의 구분을 따르기로 했다. 게임 상태는 FixedUpdate에서만 바꾸므로 "같은 시계" 목표는 그대로다. Update에서 읽을 입력(누르고 있는지, 프레임 마우스 이동량)은 단계 6에서 쓸 곳이 생길 때 더한다 |
+| 입력·시간 전달 | Input·Time을 FrameContext로 묶어 World에 전달 | Scene이 읽기 전용 Input·Time을 갖고, 컴포넌트가 소유자 GameObject를 거쳐 읽는다 | 매개변수 없는 갱신 함수 모양을 유지하고 이미 배운 소유 관계를 따라간다. World가 tick 환경을 갖는 방향은 같다. Scene이 알려 주는 서비스는 Input·Time 두 개뿐이고, 컴포넌트가 그 밖에 Scene에서 쓰는 것은 객체 생성과 정리 요청뿐이다. 다른 서비스가 필요해지면 이 결정을 다시 본다 |
 | 입력 큐 | 시각과 순서가 있는 입력 큐 | tick 단위 결과. 누름·유지·뗌과 마우스 변화량만 보관 | 소비 사이에 같은 키를 여러 번 누르면 1회가 된다. 서로 다른 키의 순서와 프레임 안에서 누른 시점은 남지 않는다. 단계 5에서 합격 기준 범위를 정할 때 다시 본다 |
-| 예약 생성·삭제 반영 | tick의 마지막 | 삭제는 Scene.Update가 끝날 때, 생성은 요청 즉시 | 단계 1에서는 Scene.Update가 갱신의 전부였다. 애니메이션을 실제 코드로 만들기 전, 단계 4 시작 때 tick 마지막으로 옮긴다. 이때 정리 도중 컴포넌트 소멸자에서 들어온 생성·정리 요청도 따로 받아 두었다가 정리가 끝난 뒤 처리한다 |
+| 예약 생성·삭제 반영 | tick의 마지막 | 삭제는 Scene.FixedUpdate나 Scene.Update가 끝날 때, 생성은 요청 즉시 | 단계 1에서는 Scene.Update(단계 3-3부터 FixedUpdate)가 갱신의 전부였다. 애니메이션을 실제 코드로 만들기 전, 단계 4 시작 때 tick 마지막으로 옮긴다. 이때 정리 도중 컴포넌트 소멸자에서 들어온 생성·정리 요청도 따로 받아 두었다가 정리가 끝난 뒤 처리한다 |
 | 보간 계수 | Time이 제공 | Time이 `InterpolationAlpha()`로 준다. 직전 Transform은 GameObject가 갖고 Scene이 tick 시작에 복사한다 | 단계 3-2에서 처음 설계대로 추가했다 |
 
 ## 단계 0에서 확인할 것
