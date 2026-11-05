@@ -4,6 +4,7 @@
 #include "Time.h"
 #include <cmath>
 #include <iostream>
+#include <stdexcept>
 
 namespace
 {
@@ -11,8 +12,11 @@ namespace
 const float MouseTurnPerCount = 0.01f;
 }
 
-PlayerControl::PlayerControl(GameObject& owner, float speed) : Component(owner), m_speed(speed)
+PlayerControl::PlayerControl(GameObject& owner, float speed, int logEveryTicks)
+    : Component(owner), m_speed(speed), m_logEveryTicks(logEveryTicks)
 {
+    if (logEveryTicks < 1)
+        throw std::invalid_argument("Log interval must be at least 1 tick.");
 }
 
 void PlayerControl::Update()
@@ -45,16 +49,24 @@ void PlayerControl::Update()
 
     transform.rotation.y += input.MouseDeltaX() * MouseTurnPerCount;
 
+    // 누름은 tick 하나에서만 참이므로 공격은 한 번만 실행된다.
+    const bool attacked = input.IsPressed(Action::Attack);
+    if (attacked)
+        ++m_attackCount;
+
+    // 위치 로그는 정한 간격마다 쓴다. 공격한 tick은 간격과 상관없이 바로 쓰지만, 정기 로그의 간격은 밀지 않는다.
+    ++m_ticksSinceLog;
+    const bool regularLog = m_ticksSinceLog >= m_logEveryTicks;
+    if (regularLog)
+        m_ticksSinceLog = 0;
+    if (!regularLog && !attacked)
+        return;
+
     std::cout << "      " << GetOwner().GetName()
               << " x=" << transform.position.x
               << " z=" << transform.position.z
               << " turnY=" << transform.rotation.y;
-
-    // 누름은 tick 하나에서만 참이므로 공격은 한 번만 실행된다.
-    if (input.IsPressed(Action::Attack))
-    {
-        ++m_attackCount;
+    if (attacked)
         std::cout << " Attack #" << m_attackCount;
-    }
     std::cout << '\n';
 }

@@ -10,6 +10,8 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+    # 창 모드가 실수로 실행되어 멈춰도 작업이 끝나도록 시간 제한을 둔다.
+    timeout-minutes: 20
     strategy:
       matrix:
         configuration: [Debug, Release]
@@ -19,8 +21,10 @@ jobs:
       - name: Build Visual Studio solution
         run: msbuild NereidesEngine2.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64
       - name: Run input and time demo
-        run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe
+        run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --demo
       - name: Verify object lifetime boundaries
         run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --lifecycle-tests
       - name: Verify input and time boundaries
         run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --input-time-tests
+      - name: Verify window message translation
+        run: ./bin/x64/${{ matrix.configuration }}/NereidesEngine2.exe --window-tests

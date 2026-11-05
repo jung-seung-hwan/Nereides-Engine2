@@ -22,18 +22,18 @@ bool Near(double a, double b)
 }
 
 // Time만 검사할 때 쓴다. 프레임의 tick을 정하고 모두 마친다.
-int AdvanceFrame(Time& time, double realSeconds)
+int AdvanceFrame(Time& time, double deltaTime)
 {
-    const int ticks = time.BeginFrame(realSeconds);
+    const int ticks = time.BeginFrame(deltaTime);
     for (int i = 0; i < ticks; ++i)
         time.FinishTick();
     return ticks;
 }
 
 // Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·갱신한 뒤 tick을 마친다.
-int RunFrame(Time& time, Input& input, Scene& scene, double realSeconds)
+int RunFrame(Time& time, Input& input, Scene& scene, double deltaTime)
 {
-    const int ticks = time.BeginFrame(realSeconds);
+    const int ticks = time.BeginFrame(deltaTime);
     for (int i = 0; i < ticks; ++i)
     {
         input.ConsumeForTick();
@@ -282,7 +282,7 @@ void TestMovementFollowsTime()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("mover");
-    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f, 1));
 
     input.OnKeyDown(Key::W);
     for (int i = 0; i < 10; ++i)
@@ -307,7 +307,7 @@ void TestDiagonalSpeed()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("diagonal");
-    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f));
+    player.AddComponent(std::make_unique<PlayerControl>(player, 1.0f, 1));
 
     input.OnKeyDown(Key::W);
     input.OnKeyDown(Key::D);
@@ -325,7 +325,7 @@ void TestTapInMultiTickFrame()
     Time time(0.1, 3);
     Scene scene(input, time);
     GameObject& player = scene.CreateObject("attacker");
-    auto control = std::make_unique<PlayerControl>(player, 1.0f);
+    auto control = std::make_unique<PlayerControl>(player, 1.0f, 1);
     PlayerControl* borrowed = control.get();
     player.AddComponent(std::move(control));
 
