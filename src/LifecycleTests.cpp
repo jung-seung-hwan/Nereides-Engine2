@@ -68,6 +68,12 @@ public:
         GetOwner().GetScene().Clear();
         Check(m_counts.destroyed == 0, "Clear destroyed an executing component.");
     }
+    // Update에서도 같은 일을 한다. 두 갱신 모두 정리를 갱신이 끝난 뒤로 미루는지 본다.
+    void Update() override
+    {
+        GetOwner().GetScene().Clear();
+        Check(m_counts.destroyed == 0, "Clear destroyed an executing component during Update.");
+    }
 private:
     Counts& m_counts;
 };
@@ -136,6 +142,40 @@ public:
     }
 private:
     int& m_rejected;
+};
+
+// Update 안에서 자기 객체의 삭제를 요청한 뒤 예외를 던진다.
+class ThrowInUpdate : public Component
+{
+public:
+    ThrowInUpdate(GameObject& owner, Counts& counts) : Component(owner), m_counts(counts) {}
+    ~ThrowInUpdate() override { ++m_counts.destroyed; }
+    void Update() override
+    {
+        GetOwner().RequestDestroy();
+        throw std::runtime_error("Update failed on purpose.");
+    }
+private:
+    Counts& m_counts;
+};
+
+// 첫 Update에서 새 객체를 만들고, 새 객체와 자기 객체에 BothCounter를 붙인다.
+class SpawnInUpdate : public Component
+{
+public:
+    SpawnInUpdate(GameObject& owner, Counts& counts) : Component(owner), m_counts(counts) {}
+    void Update() override
+    {
+        if (m_spawned)
+            return;
+        m_spawned = true;
+        GameObject& child = GetOwner().GetScene().CreateObject("spawned in update");
+        child.AddComponent(std::make_unique<BothCounter>(child, m_counts));
+        GetOwner().AddComponent(std::make_unique<BothCounter>(GetOwner(), m_counts));
+    }
+private:
+    Counts& m_counts;
+    bool m_spawned = false;
 };
 
 void TestActive()
@@ -251,30 +291,84 @@ void TestFixedUpdateAndUpdateSplit()
     Check(counts.fixedUpdates == 2 && counts.frameUpdates == 1, "A disabled component must skip both updates.");
 }
 
+// Update도 FixedUpdate와 같은 경계 규칙을 따른다.
 void TestUpdateBoundary()
 {
-    TestWorld world;
-    Scene& scene = world.scene;
+    // 삭제 요청은 Update가 끝난 뒤 반영된다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts leaving;
+        GameObject& doomed = scene.CreateObject("doomed");
+        doomed.AddComponent(std::make_unique<DestroyInUpdate>(doomed, leaving));
+        scene.FixedUpdate();
+        Check(leaving.destroyed == 0 && scene.ObjectCount() == 1,
+              "FixedUpdate must not run the Update-only delete request.");
+        scene.Update();
+        Check(leaving.destroyed == 1 && scene.ObjectCount() == 0, "A delete request in Update must apply when Update ends.");
+    }
 
-    // Update 안의 삭제 요청도 FixedUpdate와 같이 Update가 끝난 뒤 반영된다.
-    Counts leaving;
-    GameObject& doomed = scene.CreateObject("doomed");
-    doomed.AddComponent(std::make_unique<DestroyInUpdate>(doomed, leaving));
-    scene.FixedUpdate();
-    Check(leaving.destroyed == 0 && scene.ObjectCount() == 1, "FixedUpdate must not run the Update-only delete request.");
-    scene.Update();
-    Check(leaving.destroyed == 1 && scene.ObjectCount() == 0, "A delete request in Update must apply when Update ends.");
+    // Update 도중 만든 객체와 붙인 컴포넌트는 다음 Update부터 불린다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts spawned;
+        GameObject& parent = scene.CreateObject("parent");
+        parent.AddComponent(std::make_unique<SpawnInUpdate>(parent, spawned));
+        scene.Update();
+        Check(spawned.frameUpdates == 0, "Objects/components added during Update ran in the same Update.");
+        scene.Update();
+        Check(spawned.frameUpdates == 2, "Objects/components added during Update did not run in the next Update.");
+    }
+
+    // Update 도중 Clear를 불러도 정리는 Update가 끝난 뒤에 한다. 남은 객체의 Update는 불리지 않는다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts clear, other;
+        GameObject& first = scene.CreateObject("clear");
+        first.AddComponent(std::make_unique<ClearScene>(first, clear));
+        GameObject& second = scene.CreateObject("other");
+        second.AddComponent(std::make_unique<BothCounter>(second, other));
+        scene.Update();
+        Check(clear.destroyed == 1 && other.frameUpdates == 0 && scene.ObjectCount() == 0,
+              "Clear during Update must skip the remaining updates and clean up after Update.");
+    }
+}
+
+// 갱신이 실패하거나 잘못 불려도 Scene은 정리하고 계속 쓸 수 있다.
+void TestUpdateFailure()
+{
+    // Update가 예외를 던져도 그 전에 받은 삭제 요청은 반영되고, 예외는 부른 쪽까지 간다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts failing;
+        GameObject& object = scene.CreateObject("failing");
+        object.AddComponent(std::make_unique<ThrowInUpdate>(object, failing));
+        bool thrown = false;
+        try { scene.Update(); } catch (const std::runtime_error&) { thrown = true; }
+        Check(thrown, "An exception from Update must reach the caller.");
+        Check(failing.destroyed == 1 && scene.ObjectCount() == 0, "A delete request before an exception must still apply.");
+        // 갱신 중 표시가 지워졌으므로 다음 갱신을 시작할 수 있다. 남아 있으면 logic_error가 난다.
+        scene.FixedUpdate();
+        scene.Update();
+    }
 
     // 갱신 도중에는 FixedUpdate·Update 어느 것도 다시 시작할 수 없다.
-    int rejected = 0;
-    GameObject& nested = scene.CreateObject("nested");
-    nested.AddComponent(std::make_unique<NestedUpdate>(nested, rejected));
-    scene.FixedUpdate();
-    scene.Update();
-    Check(rejected == 2, "Starting an update inside another update must be rejected.");
-    // 거부된 뒤에도 Scene은 계속 쓸 수 있다.
-    scene.Update();
-    Check(rejected == 3, "The scene must keep working after a rejected nested update.");
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        int rejected = 0;
+        GameObject& nested = scene.CreateObject("nested");
+        nested.AddComponent(std::make_unique<NestedUpdate>(nested, rejected));
+        scene.FixedUpdate();
+        scene.Update();
+        Check(rejected == 2, "Starting an update inside another update must be rejected.");
+        // 거부된 뒤에도 바깥 갱신은 끝까지 돌고, 다음 갱신을 시작할 수 있다.
+        scene.Update();
+        Check(rejected == 3, "The scene must keep working after a rejected nested update.");
+    }
 }
 }
 
@@ -289,7 +383,8 @@ int RunLifecycleTests()
         TestRepeatedLifetime();
         TestFixedUpdateAndUpdateSplit();
         TestUpdateBoundary();
-        std::cout << "Lifecycle tests PASS (7 cases)\n";
+        TestUpdateFailure();
+        std::cout << "Lifecycle tests PASS (8 cases)\n";
         return 0;
     }
     catch (const std::exception& error)
