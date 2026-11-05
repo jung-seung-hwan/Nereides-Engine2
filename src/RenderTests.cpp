@@ -129,6 +129,18 @@ void TestInterpolatedItem()
     Check(Near(frame.items[0].world._41, 0.5), "Alpha 0.5 must draw halfway between the previous and current tick.");
     frame = CollectRenderFrame(world.scene, camera, 1.0f, 0.0f);
     Check(Near(frame.items[0].world._41, 0.0), "Alpha 0 must draw the previous tick.");
+    frame = CollectRenderFrame(world.scene, camera, 1.0f, 1.0f);
+    Check(Near(frame.items[0].world._41, 1.0), "Alpha 1 must draw the current tick.");
+
+    // 회전과 크기도 같은 계수로 섞는다. 직전 회전 0·크기 1, 현재 회전 1·크기 3이면 계수 0.5에서 회전 0.5·크기 2다.
+    world.scene.SavePreviousTransforms();
+    player.transform.rotation.y = 1.0f;
+    player.transform.scale = {3.0f, 3.0f, 3.0f};
+    frame = CollectRenderFrame(world.scene, camera, 1.0f, 0.5f);
+    // 크기 2와 y축 회전 0.5를 곱한 행렬의 첫 행은 (2cos0.5, 0, -2sin0.5), 둘째 행은 (0, 2, 0)이다.
+    const DirectX::XMFLOAT4X4& matrix = frame.items[0].world;
+    Check(Near(matrix._11, 2.0 * std::cos(0.5)) && Near(matrix._13, -2.0 * std::sin(0.5)) && Near(matrix._22, 2.0),
+          "Rotation and scale must be interpolated with the same alpha.");
 }
 
 void TestCollectTargets()
@@ -148,10 +160,13 @@ void TestCollectTargets()
     renderer->SetEnabled(false);
     switchedOff.AddComponent(std::move(renderer));
     world.scene.CreateObject("Empty"); // ModelRenderer가 없다
+    GameObject& leaving = world.scene.CreateObject("Leaving");
+    AddModel(leaving, box, Red);
+    leaving.RequestDestroy(); // 삭제를 기다린다. 다음 Scene.Update가 끝날 때 지워진다
 
     const RenderFrame frame = CollectRenderFrame(world.scene, camera, 1.0f, 0.0f);
     Check(frame.items.size() == 1 && Near(frame.items[0].world._41, 7.0),
-          "Only an enabled ModelRenderer on an active object must be drawn.");
+          "Only an enabled ModelRenderer on an active object that is not being destroyed must be drawn.");
 }
 
 void TestItemContents()
@@ -219,6 +234,15 @@ void TestCameraProjection()
     const DirectX::XMFLOAT4 side = ToClip(turnedFrame, 10.0f, 2.0f, -5.0f);
     Check(side.w > 0.0f && Near(side.x / side.w, 0.0) && Near(side.y / side.w, 0.0),
           "A turned camera must look along its rotated +Z.");
+
+    // 카메라도 다른 객체처럼 보간한다. 직전 z=-5, 현재 z=-3이면 계수 0.5에서 z=-4에 있는 카메라로 본다.
+    // 회전이 없는 view 행렬의 마지막 행은 카메라 위치의 반대 방향 이동이라 _43이 4가 된다.
+    TestWorld movingWorld;
+    const CameraComponent& moving = AddCamera(movingWorld.scene, {0.0f, 0.0f, -5.0f}, 0.0f);
+    movingWorld.scene.SavePreviousTransforms();
+    moving.GetOwner().transform.position.z = -3.0f;
+    const RenderFrame movingFrame = CollectRenderFrame(movingWorld.scene, moving, 1.0f, 0.5f);
+    Check(Near(movingFrame.view._43, 4.0), "The camera must be interpolated like other objects.");
 }
 
 void TestMeshWinding()
@@ -251,6 +275,10 @@ void TestMeshWinding()
 void TestInvalidInputs()
 {
     const MeshData empty{};
+    MeshData verticesOnly = MakeBox();
+    verticesOnly.indices.clear();
+    MeshData indicesOnly = MakeBox();
+    indicesOnly.vertices.clear();
     TestWorld world;
     GameObject& object = world.scene.CreateObject("Target");
     int rejected = 0;
@@ -259,12 +287,17 @@ void TestInvalidInputs()
     try { CameraComponent(object, 60.0f, 0.0f, 100.0f); } catch (const std::invalid_argument&) { ++rejected; }
     try { CameraComponent(object, 60.0f, 10.0f, 10.0f); } catch (const std::invalid_argument&) { ++rejected; }
     try { ModelRenderer(object, empty, Red); } catch (const std::invalid_argument&) { ++rejected; }
+    try { ModelRenderer(object, verticesOnly, Red); } catch (const std::invalid_argument&) { ++rejected; }
+    try { ModelRenderer(object, indicesOnly, Red); } catch (const std::invalid_argument&) { ++rejected; }
 
     const CameraComponent& camera = AddCamera(world.scene, {0.0f, 0.0f, -5.0f}, 0.0f);
     try { CollectRenderFrame(world.scene, camera, 0.0f, 0.0f); } catch (const std::invalid_argument&) { ++rejected; }
     try { CollectRenderFrame(world.scene, camera, 1.0f, -0.1f); } catch (const std::invalid_argument&) { ++rejected; }
     try { CollectRenderFrame(world.scene, camera, 1.0f, 1.1f); } catch (const std::invalid_argument&) { ++rejected; }
-    Check(rejected == 8, "Invalid camera, mesh, aspect or alpha values were accepted.");
+    // NaN은 어떤 비교도 거짓이라, 범위 검사만으로는 걸러지지 않는다.
+    try { CollectRenderFrame(world.scene, camera, 1.0f, std::nanf("")); } catch (const std::invalid_argument&) { ++rejected; }
+    try { CameraComponent(object, std::nanf(""), 0.1f, 100.0f); } catch (const std::invalid_argument&) { ++rejected; }
+    Check(rejected == 12, "Invalid camera, mesh, aspect or alpha values were accepted.");
 }
 }
 

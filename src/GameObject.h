@@ -37,6 +37,7 @@ public:
     void SavePreviousTransform();
     bool HasPreviousTransform() const { return m_hasPreviousTransform; }
     // 그릴 때 쓰는 Transform. 직전 값이 있으면 직전 값과 현재 값을 alpha만큼 섞고, 없으면 현재 값이다.
+    // 섞은 결과는 새로 계산한 값이라 참조가 아니라 값으로 돌려준다. 보관된 transform은 바뀌지 않는다.
     // 보간은 그리기에만 쓴다. 게임 코드는 transform만 읽고 쓴다.
     Transform InterpolatedTransform(float alpha) const;
     // 켜진 컴포넌트에게 그릴 항목을 넣게 한다. 수집 함수만 부른다.

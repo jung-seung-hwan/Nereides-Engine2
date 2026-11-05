@@ -32,7 +32,7 @@ public:
 
     // 창구 규칙: 컴포넌트에 알려 주는 서비스는 Input과 Time 두 개뿐이다.
     // 그 밖에 컴포넌트가 쓰는 것은 CreateObject와 Clear뿐이다.
-    // Update와 SavePreviousTransforms는 Application만, ObjectAt은 Application과 수집 함수만 부른다.
+    // Update와 SavePreviousTransforms는 Application만, ObjectAt은 수집 함수만 부른다.
     // 컴포넌트 소멸자에서는 CreateObject·Clear·Update를 부르지 않는다.
     // 소멸자는 이 Scene이 객체 목록을 지우는 도중에 실행되므로, 그때 목록을 바꾸면 정리가 꼬인다.
     // 소멸자에서 GetInput·GetTime으로 읽는 것은 괜찮다.

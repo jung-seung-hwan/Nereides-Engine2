@@ -35,6 +35,7 @@ HRESULT CreateDeviceAndSwapChain(D3D_DRIVER_TYPE driverType, UINT flags, const D
 }
 
 // 셰이더의 상수 버퍼(SceneShader.hlsli)와 같은 순서·크기다. 상수 버퍼의 크기는 16바이트의 배수여야 한다.
+// static_assert는 이 조건을 컴파일할 때 확인한다. 크기가 맞지 않으면 실행 전에 빌드가 실패한다.
 // 행렬은 GPU에 올리기 전에 전치한다. DirectXMath는 행 벡터 규칙이고, HLSL 상수 버퍼는 기본이 열 우선 배치라서다.
 struct FrameConstants
 {
@@ -161,6 +162,7 @@ void Renderer::CreatePipeline()
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
+    // std::size(배열)는 배열의 원소 개수를 돌려준다. <iterator>에 있는 C++17 함수다.
     ThrowIfFailed(m_device->CreateInputLayout(layout, static_cast<UINT>(std::size(layout)), g_SceneVertexShader,
                                               sizeof(g_SceneVertexShader), m_inputLayout.GetAddressOf()),
                   "CreateInputLayout");
@@ -241,6 +243,7 @@ void Renderer::Render(const RenderFrame& frame)
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_context->VSSetShader(m_vertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_pixelShader.Get(), nullptr, 0);
+    // 상수 버퍼를 0번 자리부터 두 개 연결한다. 0번이 셰이더의 register(b0) FrameConstants, 1번이 b1 ItemConstants다.
     ID3D11Buffer* constants[] = {m_frameConstants.Get(), m_itemConstants.Get()};
     m_context->VSSetConstantBuffers(0, static_cast<UINT>(std::size(constants)), constants);
     m_context->PSSetConstantBuffers(0, static_cast<UINT>(std::size(constants)), constants);
@@ -258,6 +261,7 @@ void Renderer::Render(const RenderFrame& frame)
     {
         if (item.mesh == nullptr)
             throw std::invalid_argument("A draw item has no mesh.");
+        // 이 참조는 이번 반복 안에서만 쓴다. 다음 반복에서 새 메시를 만들면 목록의 자리가 옮겨질 수 있다.
         const GpuMesh& mesh = FindOrCreateMesh(*item.mesh);
 
         ItemConstants itemConstants = {};

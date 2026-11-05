@@ -1,13 +1,15 @@
 #include "CollectRenderFrame.h"
 #include "CameraComponent.h"
 #include "Scene.h"
+#include <cmath>
 #include <stdexcept>
 
 RenderFrame CollectRenderFrame(const Scene& scene, const CameraComponent& camera, float aspect, float alpha)
 {
-    if (aspect <= 0.0f)
+    // NaN(숫자가 아닌 값)은 어떤 비교도 거짓이라 범위 검사를 그냥 통과한다. 그래서 std::isfinite로 먼저 거른다.
+    if (!std::isfinite(aspect) || aspect <= 0.0f)
         throw std::invalid_argument("Aspect ratio must be positive.");
-    if (alpha < 0.0f || alpha > 1.0f)
+    if (!std::isfinite(alpha) || alpha < 0.0f || alpha > 1.0f)
         throw std::invalid_argument("Interpolation alpha must be between 0 and 1.");
 
     RenderFrame frame;

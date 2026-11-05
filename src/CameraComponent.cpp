@@ -1,12 +1,14 @@
 #include "CameraComponent.h"
+#include <cmath>
 #include <stdexcept>
 
 CameraComponent::CameraComponent(GameObject& owner, float verticalFovDegrees, float nearPlane, float farPlane)
     : Component(owner), m_verticalFovDegrees(verticalFovDegrees), m_nearPlane(nearPlane), m_farPlane(farPlane)
 {
-    if (verticalFovDegrees <= 0.0f || verticalFovDegrees >= 180.0f)
+    // NaN은 어떤 비교도 거짓이라 범위 검사를 그냥 통과한다. 무한대도 투영에 쓸 수 없다. 그래서 std::isfinite로 먼저 거른다.
+    if (!std::isfinite(verticalFovDegrees) || verticalFovDegrees <= 0.0f || verticalFovDegrees >= 180.0f)
         throw std::invalid_argument("Camera field of view must be between 0 and 180 degrees.");
-    if (nearPlane <= 0.0f || farPlane <= nearPlane)
+    if (!std::isfinite(nearPlane) || !std::isfinite(farPlane) || nearPlane <= 0.0f || farPlane <= nearPlane)
         throw std::invalid_argument("Camera planes need 0 < near < far.");
 }
 

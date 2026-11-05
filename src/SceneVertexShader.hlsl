@@ -15,6 +15,7 @@ VertexOutput main(VertexInput input)
     const float4 worldPosition = mul(float4(input.position, 1.0f), world);
     output.position = mul(worldPosition, viewProjection);
     // 법선은 방향이라 w를 0으로 두어 이동을 빼고 회전·크기만 적용한다.
+    // 축마다 크기가 다르면 기울어진 면의 법선이 틀어진다. 지금은 상자를 같은 비율로만 키우고, 바닥은 법선이 +Y라 괜찮다.
     output.normal = mul(float4(input.normal, 0.0f), world).xyz;
     return output;
 }
