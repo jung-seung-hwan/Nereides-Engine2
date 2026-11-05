@@ -29,7 +29,8 @@ Window는 Win32 창과 메시지 처리를 맡는다. OS 키 코드를 Key로 �
 
 ## 상태
 
-- 코드: 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 창 모드 확인 통과, PR 검토 대기
-- 학생 이해: 미확인
-- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/4; PR·학생 답변: 아직 없음
+- 코드: 검증 완료. 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 창 모드 확인과 CI 통과, PR 검토 대기
+- 학생 이해: 학생 설명 제출, 담당자 확인 전
+- 변형 과제: 학생 제출. 설명은 PR 댓글, 코드는 기본 예제에 넣지 않고 `codex/student-issue-4-exercise` 브랜치에 보관(https://github.com/jung-seung-hwan/kraken-engine-learning/commit/e2aeede896cf077b6c1bf8884d586da6149a5bbf)
+- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/4; 학생 답변: 질문 3개와 변형 과제 설명, https://github.com/jung-seung-hwan/kraken-engine-learning/pull/13#issuecomment-6649133062
 - 구조 문서: [03-1. Win32 창과 DX11 장치, 실시간 루프](../stages/03-1-window-loop.md)
