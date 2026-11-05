@@ -1,5 +1,8 @@
 #include "Application.h"
+#include "CameraComponent.h"
+#include "CollectRenderFrame.h"
 #include "LogComponent.h"
+#include "ModelRenderer.h"
 #include "PlayerControl.h"
 #include <chrono>
 #include <iomanip>
@@ -7,6 +10,7 @@
 #include <iterator>
 #include <memory>
 #include <thread>
+#include <utility>
 
 namespace
 {
@@ -26,6 +30,15 @@ const int WindowHeight = 540;
 const int WindowLogEveryTicks = 30;
 
 const float PlayerSpeed = 1.0f; // 초당 이동 거리
+
+// 창 모드 장면의 값. 바닥 위에 상자 두 개를 놓고, 카메라가 앞 위에서 내려다본다.
+const DirectX::XMFLOAT4 FloorColor = {0.45f, 0.47f, 0.50f, 1.0f};
+const DirectX::XMFLOAT4 PlayerColor = {0.25f, 0.50f, 0.95f, 1.0f};
+const DirectX::XMFLOAT4 KrakenColor = {0.85f, 0.30f, 0.30f, 1.0f};
+const float CameraFovDegrees = 60.0f;
+const float CameraNearPlane = 0.1f;
+const float CameraFarPlane = 100.0f;
+const float CameraPitchRadians = 0.44f; // 약 25도. 양수면 아래를 본다
 
 double TickSecondsFor(RunMode mode)
 {
@@ -70,7 +83,7 @@ void Application::Initialize()
     }
     else
     {
-        std::cout << "Nereides Engine2 - Stage 3-1: window and real-time loop\n";
+        std::cout << "Nereides Engine2 - Stage 3-2: scene rendering\n";
         std::cout << "W/A/S/D: move, Space: attack, mouse: turn. Close the window to quit.\n";
         // 창을 먼저 만들어야 Renderer가 그 창에 스왑 체인을 붙일 수 있다.
         // Renderer까지 만든 뒤에 창을 보여 준다.
@@ -86,8 +99,43 @@ void Application::Initialize()
     player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed, logEveryTicks));
     GameObject& kraken = m_scene.CreateObject("Kraken");
     kraken.transform.position.x = 2;
-    kraken.AddComponent(std::make_unique<LogComponent>(kraken));
-    kraken.SetActive(false);
+    if (m_mode == RunMode::Demo)
+    {
+        // 스크립트 데모는 단계 2 그대로다. 출력이 같아야 회귀 검사가 된다.
+        kraken.AddComponent(std::make_unique<LogComponent>(kraken));
+        kraken.SetActive(false);
+        return;
+    }
+    BuildWindowScene(player, kraken);
+}
+
+void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
+{
+    // 메시 원본을 먼저 채운다. ModelRenderer는 이 원본을 가리키기만 한다.
+    m_boxMesh = MakeBox();
+    m_floorMesh = MakeFloor();
+
+    // 상자는 중심이 원점이라 높이의 절반만큼 올려 바닥 위에 세운다.
+    player.transform.position.y = 0.5f;
+    player.AddComponent(std::make_unique<ModelRenderer>(player, m_boxMesh, PlayerColor));
+
+    // 비활성 객체는 그리지 않으므로 창 모드의 Kraken은 켜 둔다.
+    // LogComponent는 달지 않는다. 켜 두면 tick마다, 곧 초당 60줄을 찍기 때문이다.
+    kraken.transform.position.y = 1.0f;
+    kraken.transform.scale = {2.0f, 2.0f, 2.0f};
+    kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, m_boxMesh, KrakenColor));
+
+    GameObject& floor = m_scene.CreateObject("Floor");
+    floor.transform.scale = {20.0f, 1.0f, 20.0f};
+    floor.AddComponent(std::make_unique<ModelRenderer>(floor, m_floorMesh, FloorColor));
+
+    GameObject& cameraObject = m_scene.CreateObject("Camera");
+    cameraObject.transform.position = {0.0f, 4.0f, -8.0f};
+    cameraObject.transform.rotation.x = CameraPitchRadians;
+    auto camera = std::make_unique<CameraComponent>(cameraObject, CameraFovDegrees, CameraNearPlane, CameraFarPlane);
+    // GameObject에 넘기기 전에 주소를 기억해 둔다. unique_ptr을 옮겨도 가리키는 객체의 주소는 그대로다.
+    m_camera = camera.get();
+    cameraObject.AddComponent(std::move(camera));
 }
 
 void Application::RunWindow()
@@ -131,15 +179,22 @@ void Application::RunWindow()
         for (int tick = 1; tick <= tickCount; ++tick)
             RunTick(tick, tickCount);
 
-        // 4. 화면을 지우고 창에 보낸다. 최소화 중에는 보이는 화면이 없어 그리지 않는다.
+        // 최소화 중에는 보이는 화면이 없어 수집도 그리기도 하지 않는다.
         if (minimized)
         {
             // Present의 기다림이 없으면 루프가 CPU를 다 쓰므로 잠깐 쉰다.
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
-        m_renderer->Clear(0.08f, 0.12f, 0.20f);
-        m_renderer->Present();
+
+        // 4. 모든 tick이 끝난 뒤 Scene을 읽어 이번 프레임에 그릴 값을 만든다.
+        // 보간 계수만큼 직전 tick과 현재 tick 사이를 섞는다. 화면 비율은 창 안쪽의 너비 ÷ 높이다.
+        const float aspect = static_cast<float>(m_window->GetWidth()) / static_cast<float>(m_window->GetHeight());
+        const float alpha = static_cast<float>(m_time.InterpolationAlpha());
+        const RenderFrame frame = CollectRenderFrame(m_scene, *m_camera, aspect, alpha);
+
+        // 5. 지우기, 그리기, 창에 보내기를 한 번에 한다.
+        m_renderer->Render(frame);
     }
 }
 
@@ -225,6 +280,8 @@ void Application::RunTick(int tick, int tickCount)
         std::cout << "  Tick " << tick << '/' << tickCount << " sim=" << m_time.SimulationTime() << '\n';
     // tick마다 한 번 소비한다. 행동 Component는 이 결과만 읽는다.
     m_input.ConsumeForTick();
+    // 보간에 쓸 직전 Transform을, 이번 tick이 객체를 움직이기 전에 복사한다.
+    m_scene.SavePreviousTransforms();
     if (showSteps)
         std::cout << "    3. Objects\n";
     m_scene.Update();

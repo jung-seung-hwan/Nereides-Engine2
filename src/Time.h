@@ -27,6 +27,10 @@ public:
     bool IsPaused() const { return m_paused; }
     double Scale() const { return m_scale; }
 
+    // 보간 계수: 아직 tick으로 쓰지 않은 남은 시간 ÷ tick 길이. 0 이상 1 미만이다.
+    // 모든 tick이 끝난 뒤 그릴 때 읽는다. 정지 중에는 바뀌지 않고, 따라잡기 상한에 걸린 프레임은 0이다.
+    double InterpolationAlpha() const { return m_accumulated / m_tickSeconds; }
+
 private:
     double m_tickSeconds;
     int m_maxTicksPerFrame;

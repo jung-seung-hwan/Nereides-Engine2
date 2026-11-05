@@ -34,6 +34,8 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <!-- 셰이더를 컴파일해 만든 헤더가 중간 폴더에 생긴다. src가 아니라서 Time.h 이름과 부딪히지 않는다. -->
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link><SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
@@ -46,6 +48,10 @@
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClInclude Include="src\Application.h" />
+    <ClCompile Include="src\CameraComponent.cpp" />
+    <ClInclude Include="src\CameraComponent.h" />
+    <ClCompile Include="src\CollectRenderFrame.cpp" />
+    <ClInclude Include="src\CollectRenderFrame.h" />
     <ClCompile Include="src\Component.cpp" />
     <ClInclude Include="src\Component.h" />
     <ClCompile Include="src\GameObject.cpp" />
@@ -59,19 +65,46 @@
     <ClCompile Include="src\LogComponent.cpp" />
     <ClInclude Include="src\LogComponent.h" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\ModelRenderer.cpp" />
+    <ClInclude Include="src\ModelRenderer.h" />
     <ClCompile Include="src\PlayerControl.cpp" />
     <ClInclude Include="src\PlayerControl.h" />
     <ClCompile Include="src\Renderer.cpp" />
     <ClInclude Include="src\Renderer.h" />
+    <ClCompile Include="src\RenderFrame.cpp" />
+    <ClInclude Include="src\RenderFrame.h" />
+    <ClCompile Include="src\RenderTests.cpp" />
+    <ClInclude Include="src\RenderTests.h" />
     <ClCompile Include="src\Scene.cpp" />
     <ClInclude Include="src\Scene.h" />
     <ClCompile Include="src\Time.cpp" />
     <ClInclude Include="src\Time.h" />
+    <ClCompile Include="src\Transform.cpp" />
     <ClInclude Include="src\Transform.h" />
     <ClCompile Include="src\Window.cpp" />
     <ClInclude Include="src\Window.h" />
     <ClCompile Include="src\WindowTests.cpp" />
     <ClInclude Include="src\WindowTests.h" />
+  </ItemGroup>
+  <!-- 셰이더: 빌드할 때 셰이더 모델 5.0으로 컴파일해, 바이트 배열이 든 헤더를 중간 폴더에 만든다. .cso 파일은 만들지 않는다. -->
+  <ItemGroup>
+    <FxCompile Include="src\ScenePixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <HeaderFileOutput>$(IntDir)%(Filename).h</HeaderFileOutput>
+      <VariableName>g_%(Filename)</VariableName>
+      <ObjectFileOutput></ObjectFileOutput>
+    </FxCompile>
+    <FxCompile Include="src\SceneVertexShader.hlsl">
+      <ShaderType>Vertex</ShaderType>
+      <ShaderModel>5.0</ShaderModel>
+      <EntryPointName>main</EntryPointName>
+      <HeaderFileOutput>$(IntDir)%(Filename).h</HeaderFileOutput>
+      <VariableName>g_%(Filename)</VariableName>
+      <ObjectFileOutput></ObjectFileOutput>
+    </FxCompile>
+    <None Include="src\SceneShader.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

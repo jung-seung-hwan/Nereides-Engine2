@@ -6,12 +6,15 @@
 
 이 이슈는 처음 단계 3 이슈를 둘로 나눈 뒤쪽이다. 앞쪽은 단계 3-1 이슈에서 다룬다.
 
+범위 조정: Renderer 안쪽은 나중에 팀원의 셜록 엔진 렌더러로 바꾼다. 상위 Nereides 프로젝트가 셜록을 붙인 경계를 같은 이름·같은 모양으로 따른다. 엔진이 프레임마다 `RenderFrame` 값을 만들어 렌더러에 넘기는 경계다. 카메라, ModelRenderer, 메시 원본, 월드 행렬, 보간, 수집 함수와 `RenderFrame`은 남는다. 셰이더, 깊이 버퍼, GPU 버퍼, 그리기는 셜록으로 바뀌므로 완료 조건을 채우는 만큼만 만든다. 셜록 연결 자체는 이 이슈의 범위가 아니다. 단계 3-2 전환 검증의 조건에 따라 학생이 정했다.
+
 ## 모듈 계약
 
-Renderer는 GPU 리소스를 관리한다. Application이 모든 tick이 끝난 뒤 프레임마다 한 번 Scene을 읽어, 카메라·월드 변환·메시·색을 값으로 담은 렌더 데이터를 만들고 Renderer에 넘긴다. Renderer는 Scene을 읽지 않는다. 게임 행동 결정은 Renderer에 넣지 않는다.
+Renderer는 GPU 리소스를 관리한다. Application이 모든 tick이 끝난 뒤 프레임마다 한 번 수집 함수 `CollectRenderFrame`으로 Scene을 읽어, 카메라·월드 변환·메시·색을 값으로 담은 렌더 데이터 `RenderFrame`을 만들고 Renderer에 넘긴다. Renderer는 Scene을 읽지 않는다. 게임 행동 결정은 Renderer에 넣지 않는다.
 
 ## 완료 조건
 
+- [x] 셜록으로 바뀔 부분과 남을 부분을 설계 문서에 적는다.
 - [ ] 바닥과 두 객체가 카메라·깊이를 적용해 표시된다.
 - [ ] Transform 변화가 화면 위치에 반영된다.
 - [ ] Time이 보간 계수를 주고, 렌더 데이터가 직전 tick과 현재 tick 사이를 보간한다.
@@ -28,6 +31,7 @@ Renderer는 GPU 리소스를 관리한다. Application이 모든 tick이 끝난 
 
 ## 상태
 
-- 코드: 미착수
+- 코드: 로컬 검증 완료. Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 렌더 데이터 검증 9개, 창 모드 확인 통과. CI 확인 중, PR 검토 대기
 - 학생 이해: 미확인
-- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/12; PR·학생 답변: 아직 없음
+- 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/12; 작업 브랜치: `codex/issue-12-scene-rendering`; PR·학생 답변: 아직 없음
+- 구조 문서: [03-2. 카메라·도형·렌더 데이터로 장면 표시](../stages/03-2-scene-rendering.md)
