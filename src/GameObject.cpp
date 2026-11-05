@@ -42,7 +42,8 @@ void GameObject::Update()
 
 void GameObject::RunComponents(bool fixedStep)
 {
-    // 이번 갱신 중 추가한 Component는 다음 갱신부터 실행한다.
+    // 이번 갱신 중 추가한 Component는 같은 종류의 다음 갱신부터 실행한다.
+    // 그래서 tick에서 붙인 Component는 같은 프레임의 Update를 첫 FixedUpdate보다 먼저 받을 수 있다.
     const std::size_t count = m_components.size();
     for (std::size_t i = 0; i < count; ++i)
     {

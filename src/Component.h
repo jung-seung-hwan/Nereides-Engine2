@@ -16,12 +16,16 @@ public:
     virtual ~Component() = default;
 
     // tick마다 부른다. 한 프레임에 0번일 수도, 여러 번일 수도 있다. 부르는 시점이 유니티의 FixedUpdate와 같다.
-    // 게임 상태를 바꾸는 일(이동, 공격, 나중의 애니메이션 진행과 판정)은 여기서 한다.
-    // 시간은 GetTime().FixedDeltaTime()을, 입력은 tick마다 한 번 소비한 GetInput()을 읽는다.
+    // 이동·공격처럼 게임 상태를 바꾸는 일은 여기서 한다.
+    // 나중의 애니메이션 진행과 판정도 같은 tick 안이지만, Scene.FixedUpdate가 끝난 뒤 Application이 한다.
+    // 시간은 GetTime().FixedDeltaTime()을 읽는다. 여기서 DeltaTime()을 읽어도 같은 값이다.
+    // 입력은 tick마다 한 번 소비한 GetInput()을 읽는다.
     virtual void FixedUpdate() {}
 
     // 프레임마다 한 번, 모든 tick이 끝난 뒤 그리기 전에 부른다. 정지 중에도 부른다. 부르는 시점이 유니티의 Update와 같다.
-    // 하는 일은 유니티보다 좁다. 게임 결과에 영향을 주지 않는 화면 연출만 한다. Transform은 바꾸지 않고, 누름·뗌 입력은 읽지 않는다.
+    // 하는 일은 유니티보다 좁다. 게임 결과에 영향을 주지 않는 화면 연출만 하고, 값은 tick에서 Update 쪽으로만 흐른다.
+    // 그래서 여기서는 Transform, 객체 생성·삭제·Clear, SetActive·SetEnabled, FixedUpdate가 읽는 값을 바꾸지 않는다.
+    // 누름·뗌 입력도 읽지 않는다. 바꿔도 되는 것은 연출에만 쓰는 자기 멤버 값이다.
     // 시간은 GetTime().DeltaTime()을 읽는다. 정지 중에는 0이다.
     virtual void Update() {}
 

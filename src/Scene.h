@@ -24,6 +24,7 @@ public:
     // tick마다 부른다. 모든 객체의 FixedUpdate를 부르고, 끝나면 삭제 예약을 반영한다.
     void FixedUpdate();
     // 프레임마다 한 번, 모든 tick이 끝난 뒤 부른다. 모든 객체의 Update를 부르고, 끝나면 삭제 예약을 반영한다.
+    // Update에서는 생성·삭제·Clear를 하지 않기로 했다. 끝의 삭제 반영은 그 규칙을 어겼을 때 목록이 꼬이지 않게 하는 안전장치다.
     void Update();
     void Clear();
     std::size_t ObjectCount() const { return m_objects.size(); }

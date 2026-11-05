@@ -32,6 +32,7 @@ int AdvanceFrame(Time& time, double unscaledDeltaTime)
 
 // Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·FixedUpdate를 한 뒤 tick을 마친다.
 // 모든 tick이 끝나면 프레임마다 한 번 Update를 부른다.
+// 직전 Transform 복사(SavePreviousTransforms)와 애니메이션·충돌 자리는 이 시험들에 필요 없어서 뺐다.
 int RunFrame(Time& time, Input& input, Scene& scene, double unscaledDeltaTime)
 {
     const int ticks = time.BeginFrame(unscaledDeltaTime);
@@ -360,21 +361,35 @@ void TestDeltaTime()
     AdvanceFrame(time, 1.0);
     Check(Near(time.DeltaTime(), 0.1), "A long frame must be capped at maxTicksPerFrame x FixedDeltaTime.");
     Check(Near(time.FixedDeltaTime(), 0.02), "FixedDeltaTime must not change with scale, pause or long frames.");
+
+    // tick 안(BeginFrame 뒤, tick을 다 마치기 전)에서는 FixedDeltaTime()이다. 유니티와 같다.
+    Time ticking(0.02, 5);
+    Check(ticking.BeginFrame(0.05) == 2, "0.05 seconds must run two 0.02-second ticks.");
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside the first tick DeltaTime must be FixedDeltaTime.");
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside the last tick DeltaTime must be FixedDeltaTime.");
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.05), "After all ticks DeltaTime must be the frame time again.");
 }
 
-// 프레임마다 FixedUpdate와 Update가 불린 횟수와, Update에서 읽은 DeltaTime을 기록한다.
+// 프레임마다 FixedUpdate와 Update가 불린 횟수와, 각각에서 읽은 DeltaTime을 기록한다.
 struct FrameRecord
 {
     int fixedUpdates = 0;
     int updates = 0;
-    double lastDeltaTime = -1.0;
+    double deltaTimeInFixedUpdate = -1.0;
+    double lastDeltaTime = -1.0; // Update에서 읽은 값
 };
 
 class FrameRecorder : public Component
 {
 public:
     FrameRecorder(GameObject& owner, FrameRecord& record) : Component(owner), m_record(record) {}
-    void FixedUpdate() override { ++m_record.fixedUpdates; }
+    void FixedUpdate() override
+    {
+        ++m_record.fixedUpdates;
+        m_record.deltaTimeInFixedUpdate = GetTime().DeltaTime();
+    }
     void Update() override
     {
         ++m_record.updates;
@@ -402,6 +417,9 @@ void TestUpdateCallsPerFrame()
     Check(RunFrame(time, input, scene, 0.25) == 3, "Long frame must run three ticks.");
     Check(record.fixedUpdates == 3 && record.updates == 2,
           "A three-tick frame must call FixedUpdate three times and Update once.");
+    // 같은 프레임이라도 FixedUpdate에서는 tick 길이를, Update에서는 프레임 시간을 읽는다.
+    Check(Near(record.deltaTimeInFixedUpdate, 0.1) && Near(record.lastDeltaTime, 0.25),
+          "DeltaTime must be the tick length in FixedUpdate and the frame time in Update.");
 
     // 정지한 프레임: FixedUpdate는 없고, Update는 DeltaTime 0으로 한 번 불린다.
     time.RequestPause(true);

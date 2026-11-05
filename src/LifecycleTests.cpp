@@ -291,7 +291,8 @@ void TestFixedUpdateAndUpdateSplit()
     Check(counts.fixedUpdates == 2 && counts.frameUpdates == 1, "A disabled component must skip both updates.");
 }
 
-// Update도 FixedUpdate와 같은 경계 규칙을 따른다.
+// Update에서는 생성·삭제·Clear를 하지 않기로 했다. 규칙을 어겨도 Scene이 FixedUpdate와 같은 경계 규칙으로
+// 안전하게 처리하는지 본다. Scene.Update 끝의 삭제 반영은 이 안전장치다.
 void TestUpdateBoundary()
 {
     // 삭제 요청은 Update가 끝난 뒤 반영된다.

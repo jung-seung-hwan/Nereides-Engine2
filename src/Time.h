@@ -26,7 +26,9 @@ public:
     double FixedDeltaTime() const { return m_fixedDeltaTime; }
     // 이번 프레임의 게임 시간. 배속을 적용한 값이고, 정지면 0이고, maxTicksPerFrame × FixedDeltaTime()을 넘지 않는다.
     // 프레임마다 한 번 도는 Update에서 읽는다.
-    double DeltaTime() const { return m_deltaTime; }
+    // tick 안(BeginFrame 뒤, 그 프레임의 tick을 다 마치기 전)에서 읽으면 FixedDeltaTime()을 돌려준다.
+    // 유니티도 FixedUpdate 안에서 Time.deltaTime을 읽으면 fixedDeltaTime을 준다. 그래서 어디서 읽든 FPS와 관계없이 맞는 값이다.
+    double DeltaTime() const;
     double RealTime() const { return m_realTime; }
     double SimulationTime() const { return m_simulationTime; }
     double DroppedTime() const { return m_droppedTime; }

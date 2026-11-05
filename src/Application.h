@@ -31,7 +31,10 @@ private:
     void RunWindow();
     void RunDemo();
     void ReadDemoInput(int frame);
-    int AdvanceDemoTime(int frame);
+    // 게임을 한 프레임만큼 진행한다: tick 수를 정하고, tick마다 RunTick을, 모든 tick 뒤에 Update를 한 번 부른다.
+    // 창 모드와 스크립트 데모가 같이 쓴다. 그래서 데모 출력으로 창 모드와 같은 순서를 확인할 수 있다.
+    void AdvanceGame(double unscaledDeltaTime);
+    void PrintDemoTime(double unscaledDeltaTime, int tickCount);
     void RunTick(int tick, int tickCount);
     void UpdateAnimation();
     void CheckCollision();

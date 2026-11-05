@@ -101,7 +101,7 @@ void Application::Initialize()
     kraken.transform.position.x = 2;
     if (m_mode == RunMode::Demo)
     {
-        // 스크립트 데모는 단계 2 그대로다. 출력이 같아야 회귀 검사가 된다.
+        // 스크립트 데모는 단계 2 그대로다. 단계 3-3에서 더한 Update 줄과 Render 번호 말고는 출력이 같아야 회귀 검사가 된다.
         kraken.AddComponent(std::make_unique<LogComponent>(kraken));
         kraken.SetActive(false);
         return;
@@ -175,20 +175,14 @@ void Application::RunWindow()
             }
         }
 
-        // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
+        // 3. 지난 프레임부터 흐른 실제 시간을 재서 게임을 한 프레임만큼 진행한다. tick들과 Update가 이 안에서 돈다.
         // 이 시간은 정지·배속을 적용하기 전 값이라 unscaledDeltaTime이라 부른다.
         // 게임 코드는 이 값 대신 FixedUpdate에서 FixedDeltaTime()을, Update에서 DeltaTime()을 읽는다.
         const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
         const double unscaledDeltaTime = std::chrono::duration<double>(now - last).count();
         last = now;
-
-        const int tickCount = m_time.BeginFrame(unscaledDeltaTime);
-        for (int tick = 1; tick <= tickCount; ++tick)
-            RunTick(tick, tickCount);
-
-        // 4. 모든 tick이 끝난 뒤 프레임마다 한 번 Update를 부른다.
-        // 최소화(정지) 중에도 부른다. 그때 DeltaTime()은 0이다.
-        m_scene.Update();
+        // 최소화(정지) 중에도 부른다. 그때 tick은 0번이고, Update는 DeltaTime() 0으로 한 번 불린다.
+        AdvanceGame(unscaledDeltaTime);
 
         // 최소화 중에는 보이는 화면이 없어 수집도 그리기도 하지 않는다.
         if (minimized)
@@ -198,13 +192,13 @@ void Application::RunWindow()
             continue;
         }
 
-        // 5. 모든 tick과 Update가 끝난 뒤 Scene을 읽어 이번 프레임에 그릴 값을 만든다.
+        // 4. 모든 tick과 Update가 끝난 뒤 Scene을 읽어 이번 프레임에 그릴 값을 만든다.
         // 보간 계수만큼 직전 tick과 현재 tick 사이를 섞는다. 화면 비율은 창 안쪽의 너비 ÷ 높이다.
         const float aspect = static_cast<float>(m_window->GetWidth()) / static_cast<float>(m_window->GetHeight());
         const float alpha = static_cast<float>(m_time.InterpolationAlpha());
         const RenderFrame frame = CollectRenderFrame(m_scene, *m_camera, aspect, alpha);
 
-        // 6. 지우기, 그리기, 창에 보내기를 한 번에 한다.
+        // 5. 지우기, 그리기, 창에 보내기를 한 번에 한다.
         m_renderer->Render(frame);
     }
 }
@@ -216,14 +210,8 @@ void Application::RunDemo()
     {
         std::cout << "\nFrame " << frame << '\n';
         ReadDemoInput(frame);
-        const int tickCount = AdvanceDemoTime(frame);
-        for (int tick = 1; tick <= tickCount; ++tick)
-            RunTick(tick, tickCount);
-        if (tickCount == 0)
-            std::cout << "  (no tick: collected input waits for the next tick)\n";
-        // 창 모드와 같이 모든 tick 뒤에 프레임마다 한 번 부른다.
-        // 데모의 컴포넌트는 Update를 재정의하지 않아서 출력은 단계 2와 같다.
-        m_scene.Update();
+        // 창 모드와 같은 함수로 게임을 진행한다. 실제로 잰 시간 대신 정해 둔 프레임 길이를 넣는다.
+        AdvanceGame(DemoFrameSeconds[frame - 1]);
         PrintDemoRender();
     }
 }
@@ -268,11 +256,28 @@ void Application::ReadDemoInput(int frame)
     }
 }
 
-int Application::AdvanceDemoTime(int frame)
+void Application::AdvanceGame(double unscaledDeltaTime)
 {
-    const double unscaledDeltaTime = DemoFrameSeconds[frame - 1];
+    // 프레임 경계: 정지·배속을 적용하고, 이번 프레임의 tick 수와 DeltaTime()을 정한다.
     const int tickCount = m_time.BeginFrame(unscaledDeltaTime);
+    if (m_mode == RunMode::Demo)
+        PrintDemoTime(unscaledDeltaTime, tickCount);
 
+    for (int tick = 1; tick <= tickCount; ++tick)
+        RunTick(tick, tickCount);
+
+    // 모든 tick이 끝난 뒤 프레임마다 한 번 Update를 부른다. tick이 0번인 프레임과 정지 중에도 부른다.
+    if (m_mode == RunMode::Demo)
+    {
+        if (tickCount == 0)
+            std::cout << "  (no tick: collected input waits for the next tick)\n";
+        std::cout << "  6. Update    once per frame, after all ticks\n";
+    }
+    m_scene.Update();
+}
+
+void Application::PrintDemoTime(double unscaledDeltaTime, int tickCount)
+{
     std::cout << "  2. Time      real+" << unscaledDeltaTime
               << " ticks=" << tickCount
               << " scale=" << m_time.Scale()
@@ -281,7 +286,6 @@ int Application::AdvanceDemoTime(int frame)
     if (m_time.DroppedTime() > 0.0)
         std::cout << " dropped=" << m_time.DroppedTime();
     std::cout << '\n';
-    return tickCount;
 }
 
 void Application::RunTick(int tick, int tickCount)
@@ -320,7 +324,7 @@ void Application::CheckCollision()
 
 void Application::PrintDemoRender()
 {
-    std::cout << "  6. Render    [placeholder] once per frame | sim=" << m_time.SimulationTime() << '\n';
+    std::cout << "  7. Render    [placeholder] once per frame | sim=" << m_time.SimulationTime() << '\n';
 }
 
 void Application::Shutdown()
