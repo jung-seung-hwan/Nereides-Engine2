@@ -192,6 +192,13 @@ LRESULT Window::HandleMessage(HWND handle, UINT message, WPARAM wParam, LPARAM l
         m_closeRequested = true;
         return 0;
 
+    case WM_ACTIVATE:
+        if (LOWORD(wParam) == WA_INACTIVE)
+            m_focused = false;
+        else
+            m_focused = true;
+        return DefWindowProcW(handle, message, wParam, lParam);
+
     case WM_NCDESTROY:
         // 창이 완전히 사라진다. 붙여 둔 주소를 지워서 이후 메시지가 이 객체로 오지 않게 한다.
         SetWindowLongPtrW(handle, GWLP_USERDATA, 0);

@@ -28,6 +28,7 @@ public:
     int GetWidth() const { return m_width; }
     int GetHeight() const { return m_height; }
     bool IsMinimized() const { return m_minimized; }
+    bool IsFocused() const { return m_focused; }
 
     // 지난번 확인 뒤 크기가 바뀌었으면 true를 돌려주고 기록을 지운다.
     bool TakeSizeChanged();
@@ -43,6 +44,7 @@ private:
     int m_width;
     int m_height;
     bool m_minimized = false;
+    bool m_focused = false;
     bool m_sizeChanged = false;
     bool m_closeRequested = false;
 

@@ -92,7 +92,7 @@ void Application::Initialize()
 
 void Application::RunWindow()
 {
-    bool wasMinimized = false;
+    bool wasPaused = false;
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 
     // 1. 쌓인 창 메시지를 처리한다. 키·마우스는 이 안에서 Input에 수집된다.
@@ -100,17 +100,21 @@ void Application::RunWindow()
     {
         // 2. 창 상태를 반영한다. Window는 기록만 했고, 크기 변경과 정지 요청은 메시지 처리가 끝난 여기서 한다.
         const bool minimized = m_window->IsMinimized();
+        const bool focused = m_window->IsFocused();
+
+        const bool shouldPause = minimized || !focused;
         // 최소화 중에는 스왑 체인 크기를 바꾸지 않는다. 바뀐 크기는 기록에 남겨 두었다가 복원한 뒤 반영한다.
         if (!minimized && m_window->TakeSizeChanged())
             m_renderer->Resize(m_window->GetWidth(), m_window->GetHeight());
-        if (minimized != wasMinimized)
+        if (shouldPause != wasPaused)
         {
             // 최소화되면 정지를, 복원되면 재개를 요청한다. 다음 BeginFrame 시작에 적용된다.
-            m_time.RequestPause(minimized);
-            wasMinimized = minimized;
-            if (minimized)
+            m_time.RequestPause(shouldPause);
+            wasPaused = shouldPause;
+            if (shouldPause)
             {
-                std::cout << "Window minimized: game time paused\n";
+                std::cout << "Game time paused (minimized=" << minimized
+                    << ", focused=" << focused << ")\n";
             }
             else
             {
