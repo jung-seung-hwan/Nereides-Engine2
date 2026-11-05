@@ -4,7 +4,7 @@
 
 이 단계는 [이슈 12](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/12)이고, 단계 3을 둘로 나눈 뒤쪽이다. 앞쪽은 [03-1 문서](03-1-window-loop.md)다.
 
-이 문서는 코드를 쓰기 전에 정한 계약이다. 학생이 문서를 확인한 뒤 코드를 쓴다.
+이 문서는 코드를 쓰기 전에 정한 계약이다. 2026-11-05 대화에서 학생이 이 문서대로 코드를 시작하자고 했고, 코드는 이 계약대로 썼다. 학생 이해 상태와는 별개다.
 
 ## 셜록 렌더러를 전제로 한 범위
 
@@ -69,7 +69,7 @@ Application은 Input, Time, 메시 원본, Window, Renderer, Scene 순서로 선
 
 ### RenderFrame.h는 Scene을 모른다
 
-`RenderFrame.h`는 DirectXMath와 표준 컨테이너만 포함한다. `Renderer.h`는 이 헤더만 포함하므로 Renderer 코드는 Scene을 읽을 방법이 없다. "Renderer는 Scene을 읽지 않는다"를 컴파일러가 지켜 주는 셈이다. Scene과 RenderFrame을 함께 아는 곳은 `CollectRenderFrame.cpp` 하나다.
+`RenderFrame.h`는 DirectXMath와 표준 컨테이너만 포함한다. `Renderer.h`는 이 헤더만 포함하므로 Renderer 코드는 Scene을 읽을 방법이 없다. "Renderer는 Scene을 읽지 않는다"를 컴파일러가 지켜 주는 셈이다. 아는 방향은 한쪽뿐이다. Scene 쪽은 RenderFrame을 안다. 컴포넌트가 그릴 항목을 넣기 때문이다. 하지만 RenderFrame.h와 Renderer는 Scene을 모른다. Scene을 읽어 RenderFrame을 만드는 곳은 `CollectRenderFrame.cpp` 하나다.
 
 넘버리데스는 `RenderFrame.h`가 Scene을 포함하고 같은 파일에 메시 컴포넌트도 둔다. 이 점은 일부러 다르게 한다.
 
@@ -241,13 +241,13 @@ virtual void AddDrawItems(RenderFrame&, const DirectX::XMFLOAT4X4&) const {}
 03-1과 같다.
 
 - DX11 함수가 실패하면 무엇이 실패했는지와 HRESULT 값을 담아 예외를 던진다. main이 받아 종료 코드 1로 끝낸다.
-- CameraComponent의 값, ModelRenderer의 빈 메시, 수집 함수의 화면 비율(0보다 커야 함)과 보간 계수(0 이상 1 이하)가 잘못되면 `std::invalid_argument`를 던진다.
+- CameraComponent의 값, ModelRenderer의 빈 메시, 수집 함수의 화면 비율(0보다 커야 함)과 보간 계수(0 이상 1 이하)가 잘못되면 `std::invalid_argument`를 던진다. NaN은 어떤 비교도 거짓이라 범위 검사를 그냥 통과하므로 `std::isfinite`로 먼저 거른다.
 
 ## 단계 3-2에서 바뀌는 기존 코드
 
 - Component: `AddDrawItems` 가상 함수.
 - GameObject: 직전 Transform과 표시, 복사·보간 함수.
-- Scene: tick 시작의 직전 Transform 복사, 수집용 읽기 함수. 둘 다 Application과 수집 함수만 쓴다고 창구 규칙에 적는다.
+- Scene: tick 시작의 직전 Transform 복사(Application만 부른다)와 수집용 읽기 함수(수집 함수만 부른다). 창구 규칙에 적는다.
 - Transform: 월드 행렬 함수와 보간 함수. "아직 행렬 계산은 하지 않는다"는 주석을 바꾼다.
 - Time: `InterpolationAlpha()` 읽기 함수.
 - Renderer: 깊이, 셰이더, 그리기. Clear와 Present 대신 Render.
@@ -298,19 +298,19 @@ virtual void AddDrawItems(RenderFrame&, const DirectX::XMFLOAT4X4&) const {}
 - `XMMATRIX`와 `XMFLOAT4X4`: `XMMATRIX`는 계산용 행렬 형식이다. CPU의 SIMD 레지스터로 빠르게 계산하려고 16바이트 정렬이 필요하므로, 멤버나 배열에 오래 보관하지 않는다. 보관은 평범한 구조체인 `XMFLOAT4X4`, `XMFLOAT3`, `XMFLOAT4`로 하고, `XMLoadFloat4x4`와 `XMStoreFloat4x4`로 오간다.
 - `const MeshData*`: 소유하지 않고 가리키기만 하는 포인터다. 단계 1 변형 과제의 `GameObject*`와 같은 종류다. 가리키는 대상이 더 오래 산다는 약속이 있어야 쓴다.
 - `std::uint32_t`: `<cstdint>`의 32비트 부호 없는 정수다. 인덱스 버퍼 형식 `DXGI_FORMAT_R32_UINT`와 크기를 맞춘다.
+- `std::isfinite`: `<cmath>`의 함수로, 값이 보통의 숫자인지(NaN도 무한대도 아닌지) 본다. NaN은 0을 0으로 나누는 것처럼 계산이 잘못되면 생기는 값이고, 어떤 비교를 해도 거짓이다.
 - `static_assert`: 컴파일할 때 조건을 확인한다. 상수 버퍼 구조체의 크기가 16바이트의 배수인지 확인하는 데 쓴다.
 - HLSL: 셰이더 언어다. `cbuffer`는 상수 버퍼, `POSITION`·`NORMAL`은 입력 배치와 맞추는 이름, `SV_POSITION`은 화면 위치, `SV_TARGET`은 화면 대상에 쓸 색이다. `mul(벡터, 행렬)`로 곱한다.
+- 상수 버퍼가 셰이더에 닿는 길: C++의 `FrameConstants` 구조체를 `UpdateSubresource`로 GPU 버퍼에 복사하고, `VSSetConstantBuffers(0, 2, ...)`로 0번 자리에 연결한다. 셰이더의 `cbuffer FrameConstants : register(b0)`가 그 0번 자리를 읽는다. 1번 자리는 `register(b1)`의 `ItemConstants`다. 구조체와 `cbuffer`는 필드 순서와 크기가 같아야 한다. 예를 들어 `FrameConstants`는 행렬 64바이트 다음에 빛 방향 12바이트와 빈 자리 4바이트를 두어 80바이트, 곧 16바이트의 배수가 된다. 행렬은 올리기 전에 전치한다. DirectXMath는 행 하나가 연속으로 놓이고, HLSL은 기본으로 열 하나가 연속으로 놓인다고 읽기 때문이다.
 
-## 읽기 순서(예정)
-
-코드를 쓴 뒤 확정한다.
+## 읽기 순서
 
 1. src/RenderFrame.h: Renderer에 넘기는 값의 모양.
 2. src/Transform.h / Transform.cpp: 월드 행렬과 보간.
 3. src/GameObject.h, src/Scene.h: 직전 Transform 복사와 수집용 읽기 함수.
 4. src/ModelRenderer, src/CameraComponent: 그릴 것과 카메라.
 5. src/CollectRenderFrame.cpp: Scene에서 RenderFrame을 만드는 곳.
-6. src/Application.cpp: 장면 구성과 프레임 루프.
+6. src/Application.cpp: 창 모드 장면 구성(`BuildWindowScene`)과 프레임 루프.
 7. src/Renderer.cpp, src/*.hlsl: GPU 쪽. 셜록으로 바뀌는 부분이다.
 
 src/RenderTests.cpp는 GPU 없이 확인하는 검증 예제다.
@@ -343,13 +343,13 @@ CI와 로컬에서 자동으로 확인하는 것:
 
 1. 보간 계수: tick 0.1초에서 0.15초가 지나면 tick 1번과 계수 0.5. 정지 중에는 계수가 그대로이고, 상한을 넘긴 프레임은 0이다.
 2. tick 시작 복사: 비활성 객체도 직전 값이 생긴다. 새로 만든 객체는 직전 값이 없다.
-3. 보간: 직전 x=0, 현재 x=1, 계수 0.5이면 항목의 월드 이동 x는 0.5다. 직전 값이 없으면 현재 값이다.
-4. 수집 대상: 활성 객체의 켜진 ModelRenderer만 항목이 된다. 비활성 객체, 꺼진 컴포넌트, ModelRenderer가 없는 객체는 빠진다.
+3. 보간: 직전 x=0, 현재 x=1, 계수 0.5이면 항목의 월드 이동 x는 0.5다. 계수 0이면 직전 값, 1이면 현재 값이다. 회전과 크기도 같은 계수로 섞는다. 직전 값이 없으면 현재 값이다.
+4. 수집 대상: 활성 객체의 켜진 ModelRenderer만 항목이 된다. 비활성 객체, 꺼진 컴포넌트, ModelRenderer가 없는 객체, 삭제를 기다리는 객체는 빠진다.
 5. 항목 내용: 메시 원본 주소와 색이 그대로 담긴다.
 6. 월드 행렬: 크기, 회전, 이동 순서로 곱한다.
-7. 카메라: 카메라 정면의 점은 화면 가운데에 놓이고 깊이가 0과 1 사이다. +X·+Y의 점은 화면의 오른쪽·위에 놓인다. 화면 비율이 넓어지면 가로 배율이 줄어든다. 카메라를 90도 돌리면 돌린 방향이 정면이 된다.
+7. 카메라: 카메라 정면의 점은 화면 가운데에 놓이고 깊이가 0과 1 사이다. +X·+Y의 점은 화면의 오른쪽·위에 놓인다. 화면 비율이 넓어지면 가로 배율이 줄어든다. 카메라를 90도 돌리면 돌린 방향이 정면이 된다. 카메라 위치도 다른 객체처럼 보간한다.
 8. 메시 원본: 상자는 정점 24개와 인덱스 36개, 바닥은 4개와 6개다. 모든 삼각형이 바깥에서 볼 때 시계 방향이다. 삼각형 (a, b, c)의 (b-a)×(c-a)가 법선 쪽을 향하는지로 확인한다.
-9. 잘못된 입력: 카메라 값, 빈 메시, 화면 비율, 보간 계수가 범위를 벗어나면 예외를 던진다.
+9. 잘못된 입력: 카메라 값, 빈 메시, 화면 비율, 보간 계수가 범위를 벗어나거나 NaN이면 예외를 던진다.
 
 CI는 창 모드를 돌리지 않는다. 창 모드는 로컬에서 아래 절차로 확인하고 결과를 기록한다.
 
@@ -378,4 +378,30 @@ CI는 창 모드를 돌리지 않는다. 창 모드는 로컬에서 아래 절�
 
 ## 검증 기록
 
-코드를 쓴 뒤 적는다.
+2026-11-05, Windows 11 개발 PC의 VS2022 MSBuild로 Debug·Release x64를 처음부터 다시 빌드했다. 셰이더를 포함해 경고 수준 4에서 경고 0, 오류 0이었다. FxCompile이 만든 셰이더 헤더는 중간 폴더에 생겼고, `.cso` 파일은 생기지 않았다.
+
+| 명령 | 기대 결과 | 실제 결과 |
+| --- | --- | --- |
+| `--demo` | 03-1과 같은 출력, 종료 코드 0 | 두 구성 모두 03-1 실행 파일의 출력 97줄과 같다. 종료 코드 0 |
+| `--lifecycle-tests`, `--input-time-tests`, `--window-tests` | 5개, 17개, 8개 통과 | 두 구성 모두 통과 |
+| `--render-tests` | 렌더 데이터 검증 9개 통과 | 두 구성 모두 PASS (9 cases) |
+| 알 수 없는 인자, 인자 두 개 | 종료 코드 2 | 두 구성 모두 종료 코드 2 |
+
+창 모드는 다른 프로세스의 PowerShell 스크립트로 확인했다. 스크립트가 실제 창에 키·크기·최소화 메시지를 보내고, 그때마다 `PrintWindow`로 창 안쪽을 캡처했다. Debug로 한 번, Release로 두 번 돌렸고, 두 번째 Release는 리뷰를 반영한 뒤의 빌드다.
+
+| 조작 | 실제 결과 |
+| --- | --- |
+| 인자 없이 실행 | "DX11 device: graphics hardware"가 찍힌다. 회색 바닥, 파란 Player 상자, 빨간 Kraken 상자가 보이고 상자의 면마다 밝기가 다르다 |
+| D 4초, 이어서 W 3초 | Player가 x=2.0, z=3.0 부근으로 가서 Kraken 뒤에 완전히 가려진다 |
+| S 3초, 이어서 A 3초 | Player가 Kraken 앞 왼쪽(x 약 -1, z 약 0)으로 나와 다시 보인다 |
+| 창 안쪽 크기 1200x400, 500x700 | 상자가 늘어나거나 찌그러지지 않는다. 가로로 보이는 범위만 넓어지거나 좁아진다 |
+| 최소화 1.5초 뒤 복원 | 정지·재개 줄이 찍히고, 위치가 그대로이며 다시 그려진다 |
+| 창 닫기 | Shutdown과 객체 정리 로그, 종료 코드 0 |
+
+확인하지 못한 것은 다음과 같다.
+
+- 마우스 회전: 스크립트로 보낸 WM_MOUSEMOVE는 커서가 창 밖에 있어서 TrackMouseEvent가 바로 WM_MOUSELEAVE를 보내므로 기준점만 다시 잡힌다. 03-1과 같은 한계다. 확인 중 실제 커서가 창 위를 지나가며 Player의 회전 값이 바뀌었고, 캡처에서 상자가 돈 것이 보였다. 직접 실행해서 확인할 항목으로 남긴다.
+- 보간으로 움직임이 부드러워졌는지는 정지 화면으로 판단할 수 없다. 계산은 렌더 데이터 검증으로 확인했다.
+- Debug의 디버그 계층이 내는 메시지는 디버거를 붙이지 않아 보지 않았다.
+- WARP로 넘어가는 경로와 디버그 계층 없이 다시 만드는 경로는 이 PC에서 실행되지 않았다.
+- CI 결과는 push 뒤 PR에서 확인한다.

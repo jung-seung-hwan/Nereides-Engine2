@@ -31,7 +31,7 @@ Renderer는 GPU 리소스를 관리한다. Application이 모든 tick이 끝난 
 
 ## 상태
 
-- 코드: 진행. 설계 문서를 쓰고 학생 확인을 기다린다. 코드는 아직 없다
+- 코드: 로컬 검증 완료. Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 렌더 데이터 검증 9개, 창 모드 확인 통과. CI 확인 중, PR 검토 대기
 - 학생 이해: 미확인
 - 실제 이슈: https://github.com/jung-seung-hwan/kraken-engine-learning/issues/12; 작업 브랜치: `codex/issue-12-scene-rendering`; PR·학생 답변: 아직 없음
 - 구조 문서: [03-2. 카메라·도형·렌더 데이터로 장면 표시](../stages/03-2-scene-rendering.md)
