@@ -7,5 +7,5 @@ class LogComponent : public Component
 public:
     explicit LogComponent(GameObject& owner);
     ~LogComponent() override;
-    void Update() override;
+    void FixedUpdate() override;
 };

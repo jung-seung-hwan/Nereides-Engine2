@@ -30,9 +30,20 @@ void GameObject::AddComponent(std::unique_ptr<Component> component)
     m_components.push_back(std::move(component));
 }
 
+void GameObject::FixedUpdate()
+{
+    RunComponents(true);
+}
+
 void GameObject::Update()
 {
-    // 이번 갱신 중 추가한 Component는 다음 갱신부터 실행한다.
+    RunComponents(false);
+}
+
+void GameObject::RunComponents(bool fixedStep)
+{
+    // 이번 갱신 중 추가한 Component는 같은 종류의 다음 갱신부터 실행한다.
+    // 그래서 tick에서 붙인 Component는 같은 프레임의 Update를 첫 FixedUpdate보다 먼저 받을 수 있다.
     const std::size_t count = m_components.size();
     for (std::size_t i = 0; i < count; ++i)
     {
@@ -40,7 +51,11 @@ void GameObject::Update()
             break;
 
         Component* component = m_components[i].get();
-        if (component->IsEnabled())
+        if (!component->IsEnabled())
+            continue;
+        if (fixedStep)
+            component->FixedUpdate();
+        else
             component->Update();
     }
 }
@@ -70,7 +85,7 @@ Transform GameObject::InterpolatedTransform(float alpha) const
 
 void GameObject::AddDrawItems(RenderFrame& frame, const DirectX::XMFLOAT4X4& world) const
 {
-    // Update와 같은 규칙: 꺼진 컴포넌트는 부르지 않는다. 객체의 활성 여부는 수집 함수가 먼저 본다.
+    // FixedUpdate·Update와 같은 규칙: 꺼진 컴포넌트는 부르지 않는다. 객체의 활성 여부는 수집 함수가 먼저 본다.
     for (const auto& component : m_components)
     {
         if (component->IsEnabled())

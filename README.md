@@ -3,19 +3,20 @@
 C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 만드는 DX11 엔진 학습 프로젝트다.
 최종 목표는 캐릭터 한 명과 3D 크라켄 한 마리가 싸우는 작은 프로토타입이다.
 
-## 현재 학습: 단계 3-2
+## 현재 학습: 단계 3-3
 
-바닥·Player·Kraken을 평면과 상자로 그린다. 카메라는 Scene 안의 GameObject이고, 무엇을 그릴지는 ModelRenderer가 정한다.
-Application이 모든 tick 뒤 프레임마다 한 번 Scene을 읽어 RenderFrame 값을 만들고 Renderer에 넘긴다. tick 사이의 위치는 보간해서 그린다.
+컴포넌트 갱신을 유니티처럼 둘로 나눈다. FixedUpdate는 0.02초마다 돌며 이동·공격 같은 게임 상태를 바꾸고, Update는 프레임마다 한 번 돌며 화면 연출만 맡는다.
+시간 이름도 유니티와 맞춘다: `FixedDeltaTime()`, `DeltaTime()`, `unscaledDeltaTime`. 실시간 루프는 루프 안의 if로 닫기 요청을 확인해 끝낸다.
+장면은 3-2와 같다. Application이 모든 tick과 Update 뒤 프레임마다 한 번 Scene을 읽어 RenderFrame 값을 만들고 Renderer에 넘긴다. tick 사이의 위치는 보간해서 그린다.
 Renderer 안쪽은 나중에 팀원의 셜록 엔진 렌더러로 바꾼다. 그래서 경계는 상위 Nereides 프로젝트가 셜록을 붙인 모양을 따른다.
 창 모드에서 W·A·S·D로 Player 상자를 움직인다. 애니메이션·충돌은 아직 구현하지 않았다.
 
 1. [전체 목표 구조](docs/architecture.md)
-2. [이번 단계: 카메라·도형·렌더 데이터로 장면 표시](docs/stages/03-2-scene-rendering.md)
+2. [이번 단계: Update와 FixedUpdate 나누기](docs/stages/03-3-update-split.md)
 3. [학습 로드맵](docs/roadmap.md) / [실제 GitHub 이슈 목록](docs/github-issues.md)
 4. [에이전트 규칙](AGENTS.md)
 
-이전 단계는 [실행 순서](docs/stages/00-execution.md), [객체 수명](docs/stages/01-lifecycle.md), [입력과 시간](docs/stages/02-input-time.md), [창과 실시간 루프](docs/stages/03-1-window-loop.md) 문서에서 확인한다.
+이전 단계는 [실행 순서](docs/stages/00-execution.md), [객체 수명](docs/stages/01-lifecycle.md), [입력과 시간](docs/stages/02-input-time.md), [창과 실시간 루프](docs/stages/03-1-window-loop.md), [카메라·도형·렌더 데이터](docs/stages/03-2-scene-rendering.md) 문서에서 확인한다.
 단계별 과거 기록과 현재 구현 범위를 구분한다.
 
 ## Visual Studio에서 실행
@@ -52,7 +53,8 @@ GitHub Actions가 두 구성의 빌드, 스크립트 데모, 수명 검증, 입�
 코드 검증과 학생 이해 확인은 별도 상태다. 학생은 PR에 구조 설명과 작은 변형 과제 결과를 남긴다.
 에이전트는 실제로 확인한 결과만 기록하고 학생 답변·교수 승인을 대신 작성하지 않는다.
 
-현재 단계 3-1은 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 창 모드 확인과 CI를 통과했다. 학생 이해는 학생 설명 제출, 담당자 확인 전이다.
+단계 3-1은 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 창 모드 확인과 CI를 통과했다. 학생 이해는 학생 설명 제출, 담당자 확인 전이다.
 단계 3-2는 로컬 Debug·Release 빌드, 수명 검증 5개, 입력·시간 검증 17개, 창 메시지 검증 8개, 렌더 데이터 검증 9개, 창 모드 확인을 통과했다. CI는 확인 중이다. 학생 이해는 미확인이다.
+단계 3-3은 로컬 Debug·Release 빌드, 수명 검증 8개, 입력·시간 검증 19개, 창 메시지 검증 8개, 렌더 데이터 검증 9개, 스크립트 데모 비교, 창 모드 확인을 통과했다. CI는 확인 중이다. 학생 이해는 미확인이다.
 리플렉션, 복잡한 템플릿, 자동 등록, 범용 ECS/RHI, 씬 에디터는 추가하지 않는다.
 지침 파일만으로 에이전트가 자동 실행되지는 않는다. 다음 단계는 별도로 할당한다.

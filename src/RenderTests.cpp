@@ -162,7 +162,7 @@ void TestCollectTargets()
     world.scene.CreateObject("Empty"); // ModelRenderer가 없다
     GameObject& leaving = world.scene.CreateObject("Leaving");
     AddModel(leaving, box, Red);
-    leaving.RequestDestroy(); // 삭제를 기다린다. 다음 Scene.Update가 끝날 때 지워진다
+    leaving.RequestDestroy(); // 삭제를 기다린다. 다음 Scene.FixedUpdate나 Scene.Update가 끝날 때 지워진다
 
     const RenderFrame frame = CollectRenderFrame(world.scene, camera, 1.0f, 0.0f);
     Check(frame.items.size() == 1 && Near(frame.items[0].world._41, 7.0),

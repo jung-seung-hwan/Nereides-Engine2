@@ -96,7 +96,7 @@ void Window::Show()
     ShowWindow(m_handle, SW_SHOW);
 }
 
-bool Window::ProcessMessages()
+void Window::ProcessMessages()
 {
     MSG message = {};
     // PeekMessageW는 메시지가 없으면 기다리지 않고 바로 돌아온다. 그래서 메시지가 없어도 게임 루프가 계속 돈다.
@@ -108,7 +108,6 @@ bool Window::ProcessMessages()
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
-    return !m_closeRequested;
 }
 
 bool Window::TakeSizeChanged()

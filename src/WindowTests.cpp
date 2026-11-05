@@ -202,10 +202,14 @@ void TestCloseRequestKeepsWindowUntilDestroyed()
     {
         Window window(input, L"window test", 320, 240);
         handle = window.GetHandle();
-        Check(window.ProcessMessages(), "A new window must keep the loop running.");
+        window.ProcessMessages();
+        Check(!window.IsCloseRequested(), "A new window must not report a close request.");
 
         SendMessageW(handle, WM_CLOSE, 0, 0);
-        Check(!window.ProcessMessages(), "A close request must end the loop.");
+        window.ProcessMessages();
+        Check(window.IsCloseRequested(), "A close request must be recorded so the loop can end.");
+        window.ProcessMessages();
+        Check(window.IsCloseRequested(), "A close request must stay recorded.");
         Check(IsWindow(handle) != FALSE, "The window must stay until the Window object is destroyed.");
     }
     Check(IsWindow(handle) == FALSE, "Destroying the Window object must destroy the window.");
@@ -221,7 +225,8 @@ void TestQueuedMessagesGoThroughProcessMessages()
     input.ConsumeForTick();
     Check(!input.IsPressed(Action::MoveRight), "A queued message must wait until ProcessMessages runs.");
 
-    Check(window.ProcessMessages(), "Processing key messages must keep the loop running.");
+    window.ProcessMessages();
+    Check(!window.IsCloseRequested(), "Processing key messages must not request a close.");
     input.ConsumeForTick();
     Check(input.IsPressed(Action::MoveRight) && input.IsHeld(Action::MoveRight),
           "ProcessMessages must deliver the queued key to Input.");

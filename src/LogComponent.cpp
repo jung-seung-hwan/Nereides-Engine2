@@ -12,8 +12,8 @@ LogComponent::~LogComponent()
     std::cout << "  Destroy LogComponent: " << GetOwner().GetName() << '\n';
 }
 
-void LogComponent::Update()
+void LogComponent::FixedUpdate()
 {
-    std::cout << "    Update " << GetOwner().GetName()
+    std::cout << "    FixedUpdate " << GetOwner().GetName()
               << " position.x=" << GetOwner().transform.position.x << '\n';
 }

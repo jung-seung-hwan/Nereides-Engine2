@@ -7,6 +7,7 @@
 - [[단계 2] 입력 전달과 시간 관리](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/3)
 - [[단계 3-1] Win32 창과 DX11 장치, 실시간 루프](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/4)
 - [[단계 3-2] 카메라·도형·렌더 데이터로 장면 표시](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/12)
+- [[단계 3-3] Update와 FixedUpdate 나누기](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/15)
 - [[단계 4] 모델 원본과 객체별 애니메이션 재생](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/5)
 - [[단계 5] 애니메이션 시점과 판정 구간 연결](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/6)
 - [[단계 6] 캐릭터와 크라켄의 작은 전투](https://github.com/jung-seung-hwan/kraken-engine-learning/issues/7)

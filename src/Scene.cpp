@@ -20,10 +20,21 @@ GameObject& Scene::CreateObject(const std::string& name)
     return result;
 }
 
+void Scene::FixedUpdate()
+{
+    RunObjects(true);
+}
+
 void Scene::Update()
 {
+    RunObjects(false);
+}
+
+void Scene::RunObjects(bool fixedStep)
+{
+    // FixedUpdate 도중 Update를 부르는 것처럼, 갱신 도중에는 어느 갱신도 다시 시작할 수 없다.
     if (m_updating)
-        throw std::logic_error("Scene::Update cannot call itself.");
+        throw std::logic_error("Scene cannot start an update while another update is running.");
 
     m_updating = true;
     // 순회 중 생성해도 현재 호출 대상 수는 바뀌지 않는다.
@@ -31,7 +42,12 @@ void Scene::Update()
     try
     {
         for (std::size_t i = 0; i < count; ++i)
-            m_objects[i]->Update();
+        {
+            if (fixedStep)
+                m_objects[i]->FixedUpdate();
+            else
+                m_objects[i]->Update();
+        }
     }
     catch (...)
     {
@@ -58,7 +74,7 @@ const GameObject& Scene::ObjectAt(std::size_t index) const
 
 void Scene::RemoveDestroyedObjects()
 {
-    // Update가 모두 반환한 뒤에만 소유권을 제거한다.
+    // FixedUpdate나 Update가 모두 반환한 뒤에만 소유권을 제거한다.
     std::size_t i = 0;
     while (i < m_objects.size())
     {
@@ -74,7 +90,7 @@ void Scene::Clear()
     for (const auto& object : m_objects)
         object->RequestDestroy();
 
-    // Component의 Update 안에서 Clear를 요청해도 정리는 뒤로 미룬다.
+    // Component의 FixedUpdate·Update 안에서 Clear를 요청해도 정리는 뒤로 미룬다.
     if (!m_updating)
         RemoveDestroyedObjects();
 }

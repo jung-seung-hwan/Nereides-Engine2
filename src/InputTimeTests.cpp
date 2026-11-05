@@ -22,24 +22,27 @@ bool Near(double a, double b)
 }
 
 // Time만 검사할 때 쓴다. 프레임의 tick을 정하고 모두 마친다.
-int AdvanceFrame(Time& time, double deltaTime)
+int AdvanceFrame(Time& time, double unscaledDeltaTime)
 {
-    const int ticks = time.BeginFrame(deltaTime);
+    const int ticks = time.BeginFrame(unscaledDeltaTime);
     for (int i = 0; i < ticks; ++i)
         time.FinishTick();
     return ticks;
 }
 
-// Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·갱신한 뒤 tick을 마친다.
-int RunFrame(Time& time, Input& input, Scene& scene, double deltaTime)
+// Application과 같은 순서: 프레임마다 tick 수를 정하고, tick마다 소비·FixedUpdate를 한 뒤 tick을 마친다.
+// 모든 tick이 끝나면 프레임마다 한 번 Update를 부른다.
+// 직전 Transform 복사(SavePreviousTransforms)와 애니메이션·충돌 자리는 이 시험들에 필요 없어서 뺐다.
+int RunFrame(Time& time, Input& input, Scene& scene, double unscaledDeltaTime)
 {
-    const int ticks = time.BeginFrame(deltaTime);
+    const int ticks = time.BeginFrame(unscaledDeltaTime);
     for (int i = 0; i < ticks; ++i)
     {
         input.ConsumeForTick();
-        scene.Update();
+        scene.FixedUpdate();
         time.FinishTick();
     }
+    scene.Update();
     return ticks;
 }
 
@@ -212,7 +215,7 @@ void TestInvalidKey()
     Check(rejected == 2, "Key::Count was accepted as a real key.");
 }
 
-// 컴포넌트가 자기 Update 안에서 읽은 Input·Time의 주소를 기록한다.
+// 컴포넌트가 자기 FixedUpdate 안에서 읽은 Input·Time의 주소를 기록한다.
 struct SeenServices
 {
     const Input* input = nullptr;
@@ -223,7 +226,7 @@ class ServiceReader : public Component
 {
 public:
     ServiceReader(GameObject& owner, SeenServices& seen) : Component(owner), m_seen(seen) {}
-    void Update() override
+    void FixedUpdate() override
     {
         m_seen.input = &GetInput();
         m_seen.time = &GetTime();
@@ -232,12 +235,12 @@ private:
     SeenServices& m_seen;
 };
 
-// 첫 Update에서 새 객체를 만들고 ServiceReader를 붙인다.
+// 첫 FixedUpdate에서 새 객체를 만들고 ServiceReader를 붙인다.
 class SpawnReader : public Component
 {
 public:
     SpawnReader(GameObject& owner, SeenServices& seen) : Component(owner), m_seen(seen) {}
-    void Update() override
+    void FixedUpdate() override
     {
         if (m_spawned)
             return;
@@ -265,12 +268,12 @@ void TestServiceAccessThroughOwner()
     spawner.AddComponent(std::make_unique<SpawnReader>(spawner, spawned));
     Check(&probe.GetScene() == &scene, "GameObject does not know the Scene that owns it.");
 
-    scene.Update();
+    scene.FixedUpdate();
     Check(direct.input == &input && direct.time == &time,
           "Component did not reach the Scene's Input and Time.");
     Check(spawned.input == nullptr, "Spawned object ran in its creation update.");
 
-    scene.Update();
+    scene.FixedUpdate();
     Check(spawned.input == &input && spawned.time == &time,
           "Spawned object's component did not reach the same Input and Time.");
 }
@@ -336,6 +339,103 @@ void TestTapInMultiTickFrame()
     Check(RunFrame(time, input, scene, 0.3) == 3, "Long frame must run three ticks.");
     Check(borrowed->AttackCount() == 1, "Short tap must attack exactly once.");
 }
+
+void TestDeltaTime()
+{
+    Time time(0.02, 5);
+    Check(Near(time.FixedDeltaTime(), 0.02), "FixedDeltaTime must be the tick length.");
+    Check(Near(time.DeltaTime(), 0.0), "Before the first frame DeltaTime must be zero.");
+
+    AdvanceFrame(time, 0.016);
+    Check(Near(time.DeltaTime(), 0.016), "DeltaTime must follow the real frame time.");
+
+    time.RequestScale(2.0);
+    AdvanceFrame(time, 0.016);
+    Check(Near(time.DeltaTime(), 0.032), "DeltaTime must apply the time scale.");
+
+    time.RequestPause(true);
+    AdvanceFrame(time, 0.016);
+    Check(Near(time.DeltaTime(), 0.0), "DeltaTime must be zero while paused.");
+
+    // 배속 2로 1초 프레임이면 게임 시간 2초지만, 5 tick × 0.02초 = 0.1초에서 자른다.
+    time.RequestPause(false);
+    AdvanceFrame(time, 1.0);
+    Check(Near(time.DeltaTime(), 0.1), "A long frame must be capped at maxTicksPerFrame x FixedDeltaTime.");
+    Check(Near(time.FixedDeltaTime(), 0.02), "FixedDeltaTime must not change with scale, pause or long frames.");
+
+    // tick 안(BeginFrame 뒤, tick을 다 마치기 전)에서는 FixedDeltaTime()이다. 유니티와 같다.
+    Time ticking(0.02, 5);
+    Check(ticking.BeginFrame(0.05) == 2, "0.05 seconds must run two 0.02-second ticks.");
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside the first tick DeltaTime must be FixedDeltaTime.");
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside the last tick DeltaTime must be FixedDeltaTime.");
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.05), "After all ticks DeltaTime must be the frame time again.");
+
+    // 배속은 프레임 시간에만 곱한다. tick 안의 값은 배속과 관계없이 tick 길이다.
+    ticking.RequestScale(2.0);
+    Check(ticking.BeginFrame(0.02) == 2, "Double speed must turn 0.02 seconds into two ticks.");
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside a tick DeltaTime must ignore the time scale.");
+    ticking.FinishTick();
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.04), "After the ticks DeltaTime must be the scaled frame time.");
+}
+
+// 프레임마다 FixedUpdate와 Update가 불린 횟수와, 각각에서 읽은 DeltaTime을 기록한다.
+struct FrameRecord
+{
+    int fixedUpdates = 0;
+    int updates = 0;
+    double deltaTimeInFixedUpdate = -1.0;
+    double lastDeltaTime = -1.0; // Update에서 읽은 값
+};
+
+class FrameRecorder : public Component
+{
+public:
+    FrameRecorder(GameObject& owner, FrameRecord& record) : Component(owner), m_record(record) {}
+    void FixedUpdate() override
+    {
+        ++m_record.fixedUpdates;
+        m_record.deltaTimeInFixedUpdate = GetTime().DeltaTime();
+    }
+    void Update() override
+    {
+        ++m_record.updates;
+        m_record.lastDeltaTime = GetTime().DeltaTime();
+    }
+private:
+    FrameRecord& m_record;
+};
+
+void TestUpdateCallsPerFrame()
+{
+    Input input;
+    Time time(0.1, 3);
+    Scene scene(input, time);
+    FrameRecord record;
+    GameObject& object = scene.CreateObject("recorder");
+    object.AddComponent(std::make_unique<FrameRecorder>(object, record));
+
+    // tick이 0번인 프레임: FixedUpdate는 없고, Update는 한 번이다.
+    Check(RunFrame(time, input, scene, 0.05) == 0, "Short frame must not run a tick.");
+    Check(record.fixedUpdates == 0 && record.updates == 1, "A frame without ticks must still call Update once.");
+    Check(Near(record.lastDeltaTime, 0.05), "Update must read this frame's DeltaTime.");
+
+    // tick이 3번인 프레임: FixedUpdate는 3번, Update는 그래도 한 번이다.
+    Check(RunFrame(time, input, scene, 0.25) == 3, "Long frame must run three ticks.");
+    Check(record.fixedUpdates == 3 && record.updates == 2,
+          "A three-tick frame must call FixedUpdate three times and Update once.");
+    // 같은 프레임이라도 FixedUpdate에서는 tick 길이를, Update에서는 프레임 시간을 읽는다.
+    Check(Near(record.deltaTimeInFixedUpdate, 0.1) && Near(record.lastDeltaTime, 0.25),
+          "DeltaTime must be the tick length in FixedUpdate and the frame time in Update.");
+
+    // 정지한 프레임: FixedUpdate는 없고, Update는 DeltaTime 0으로 한 번 불린다.
+    time.RequestPause(true);
+    Check(RunFrame(time, input, scene, 0.3) == 0, "Paused frame must not run a tick.");
+    Check(record.fixedUpdates == 3 && record.updates == 3 && Near(record.lastDeltaTime, 0.0),
+          "A paused frame must call Update once with zero DeltaTime.");
+}
 }
 
 int RunInputTimeTests()
@@ -359,7 +459,9 @@ int RunInputTimeTests()
         TestMovementFollowsTime();
         TestDiagonalSpeed();
         TestTapInMultiTickFrame();
-        std::cout << "Input/time tests PASS (17 cases)\n";
+        TestDeltaTime();
+        TestUpdateCallsPerFrame();
+        std::cout << "Input/time tests PASS (19 cases)\n";
         return 0;
     }
     catch (const std::exception& error)
