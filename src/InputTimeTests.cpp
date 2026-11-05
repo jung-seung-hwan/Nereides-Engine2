@@ -344,6 +344,7 @@ void TestDeltaTime()
 {
     Time time(0.02, 5);
     Check(Near(time.FixedDeltaTime(), 0.02), "FixedDeltaTime must be the tick length.");
+    Check(Near(time.DeltaTime(), 0.0), "Before the first frame DeltaTime must be zero.");
 
     AdvanceFrame(time, 0.016);
     Check(Near(time.DeltaTime(), 0.016), "DeltaTime must follow the real frame time.");
@@ -370,6 +371,14 @@ void TestDeltaTime()
     Check(Near(ticking.DeltaTime(), 0.02), "Inside the last tick DeltaTime must be FixedDeltaTime.");
     ticking.FinishTick();
     Check(Near(ticking.DeltaTime(), 0.05), "After all ticks DeltaTime must be the frame time again.");
+
+    // 배속은 프레임 시간에만 곱한다. tick 안의 값은 배속과 관계없이 tick 길이다.
+    ticking.RequestScale(2.0);
+    Check(ticking.BeginFrame(0.02) == 2, "Double speed must turn 0.02 seconds into two ticks.");
+    Check(Near(ticking.DeltaTime(), 0.02), "Inside a tick DeltaTime must ignore the time scale.");
+    ticking.FinishTick();
+    ticking.FinishTick();
+    Check(Near(ticking.DeltaTime(), 0.04), "After the ticks DeltaTime must be the scaled frame time.");
 }
 
 // 프레임마다 FixedUpdate와 Update가 불린 횟수와, 각각에서 읽은 DeltaTime을 기록한다.

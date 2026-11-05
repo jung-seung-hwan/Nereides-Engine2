@@ -74,7 +74,7 @@ int Time::BeginFrame(double unscaledDeltaTime)
 
 double Time::DeltaTime() const
 {
-    // BeginFrame이 정한 tick을 아직 다 마치지 않았으면 지금은 tick 안이다. tick 하나의 길이를 준다.
+    // BeginFrame이 정한 tick을 아직 다 마치지 않았으면 Application이 tick을 진행하는 중이다. 이때는 tick 하나의 길이를 준다.
     if (m_ticksLeft > 0)
         return m_fixedDeltaTime;
     return m_deltaTime;

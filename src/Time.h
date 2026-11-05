@@ -25,9 +25,10 @@ public:
     // tick 하나의 길이. 늘 같은 값이다. FixedUpdate에서 읽는다.
     double FixedDeltaTime() const { return m_fixedDeltaTime; }
     // 이번 프레임의 게임 시간. 배속을 적용한 값이고, 정지면 0이고, maxTicksPerFrame × FixedDeltaTime()을 넘지 않는다.
-    // 프레임마다 한 번 도는 Update에서 읽는다.
-    // tick 안(BeginFrame 뒤, 그 프레임의 tick을 다 마치기 전)에서 읽으면 FixedDeltaTime()을 돌려준다.
-    // 유니티도 FixedUpdate 안에서 Time.deltaTime을 읽으면 fixedDeltaTime을 준다. 그래서 어디서 읽든 FPS와 관계없이 맞는 값이다.
+    // 프레임마다 한 번 도는 Update에서 읽는다. 프레임 길이를 따르므로 FPS에 따라 값이 달라진다.
+    // 예외: BeginFrame이 정한 tick을 아직 다 마치지 않은 동안(FixedUpdate 안과 tick 사이)에는 FixedDeltaTime()을 준다.
+    // 유니티도 FixedUpdate 안에서 Time.deltaTime을 읽으면 fixedDeltaTime을 준다. 그래서 FixedUpdate에서 속도 × DeltaTime()을 써도 FPS와 관계없이 맞다.
+    // BeginFrame 없이 Scene.FixedUpdate만 부르는 시험에서는 이 예외가 걸리지 않고, 마지막 프레임의 값(첫 프레임 전에는 0)을 준다.
     double DeltaTime() const;
     double RealTime() const { return m_realTime; }
     double SimulationTime() const { return m_simulationTime; }

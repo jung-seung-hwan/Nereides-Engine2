@@ -18,7 +18,7 @@ public:
     // tick마다 부른다. 한 프레임에 0번일 수도, 여러 번일 수도 있다. 부르는 시점이 유니티의 FixedUpdate와 같다.
     // 이동·공격처럼 게임 상태를 바꾸는 일은 여기서 한다.
     // 나중의 애니메이션 진행과 판정도 같은 tick 안이지만, Scene.FixedUpdate가 끝난 뒤 Application이 한다.
-    // 시간은 GetTime().FixedDeltaTime()을 읽는다. 여기서 DeltaTime()을 읽어도 같은 값이다.
+    // 시간은 GetTime().FixedDeltaTime()을 읽는다. Application이 진행하는 tick에서는 DeltaTime()을 읽어도 같은 값이다.
     // 입력은 tick마다 한 번 소비한 GetInput()을 읽는다.
     virtual void FixedUpdate() {}
 

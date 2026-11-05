@@ -18,6 +18,8 @@ struct Counts
 // 수명 검증은 입력과 시간을 쓰지 않지만, Scene을 만들려면 Input과 Time이 필요하다.
 // FixedUpdate·Update를 매개변수 없는 모양으로 두려고 Scene이 Input과 Time을 갖게 한 설계 선택의 대가다.
 // Application과 같은 선언 순서라서 Scene이 가장 먼저 정리된다.
+// 이 시험들은 BeginFrame 없이 Scene.FixedUpdate를 바로 부른다. 그래서 여기서 DeltaTime()을 읽으면 tick 길이가 아니라 0이 나온다.
+// 여기의 컴포넌트는 시간을 읽지 않는다. 시간이 필요한 시험은 입력·시간 시험의 RunFrame처럼 BeginFrame부터 진행한다.
 struct TestWorld
 {
     Input input;
