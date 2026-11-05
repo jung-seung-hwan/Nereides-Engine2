@@ -43,6 +43,19 @@ void Scene::Update()
     RemoveDestroyedObjects();
 }
 
+void Scene::SavePreviousTransforms()
+{
+    // 비활성 객체도 복사한다. 꺼져 있는 동안 옮겨진 뒤 다시 켜져도 끌려오지 않게 하기 위해서다.
+    for (const auto& object : m_objects)
+        object->SavePreviousTransform();
+}
+
+const GameObject& Scene::ObjectAt(std::size_t index) const
+{
+    // at은 범위를 벗어나면 std::out_of_range 예외를 던진다.
+    return *m_objects.at(index);
+}
+
 void Scene::RemoveDestroyedObjects()
 {
     // Update가 모두 반환한 뒤에만 소유권을 제거한다.

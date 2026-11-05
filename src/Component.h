@@ -1,4 +1,5 @@
 #pragma once
+#include "RenderFrame.h"
 
 class GameObject;
 class Input;
@@ -14,6 +15,12 @@ public:
     // GetInput·GetTime으로 읽는 것은 괜찮다.
     virtual ~Component() = default;
     virtual void Update() {}
+
+    // 그릴 것이 있는 컴포넌트만 재정의해서 frame.items에 항목을 넣는다. 기본은 아무것도 넣지 않는다.
+    // 수집 함수가 모든 tick이 끝난 뒤 프레임마다 한 번 부르고, 보간한 월드 행렬을 넘긴다.
+    // 읽기만 한다. 여기서 객체나 Scene을 바꾸지 않는다.
+    // 기본 구현은 매개변수를 쓰지 않으므로 이름을 비운다. 이름이 있으면 "쓰지 않는 매개변수" 경고가 난다.
+    virtual void AddDrawItems(RenderFrame&, const DirectX::XMFLOAT4X4&) const {}
 
     GameObject& GetOwner() const { return m_owner; }
     bool IsEnabled() const { return m_enabled; }

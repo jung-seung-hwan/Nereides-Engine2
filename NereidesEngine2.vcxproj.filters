@@ -3,10 +3,15 @@
   <ItemGroup>
     <Filter Include="Source Files"><UniqueIdentifier>{C6B440FC-486D-45FD-A527-83FB49A8DB9A}</UniqueIdentifier></Filter>
     <Filter Include="Header Files"><UniqueIdentifier>{636277AC-66DD-4587-B90F-7B49284878AA}</UniqueIdentifier></Filter>
+    <Filter Include="Shader Files"><UniqueIdentifier>{5B2D8A61-3F4C-4E7A-9C1D-2A6B8E9F0C13}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Application.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\CameraComponent.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\CameraComponent.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\CollectRenderFrame.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\CollectRenderFrame.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Component.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Component.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\GameObject.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -20,18 +25,28 @@
     <ClCompile Include="src\LogComponent.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\LogComponent.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\main.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\ModelRenderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\ModelRenderer.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\PlayerControl.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\PlayerControl.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Renderer.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Renderer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\RenderFrame.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\RenderFrame.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\RenderTests.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\RenderTests.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Scene.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Scene.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Time.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Time.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\Transform.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Transform.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Window.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Window.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\WindowTests.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\WindowTests.h"><Filter>Header Files</Filter></ClInclude>
+    <FxCompile Include="src\ScenePixelShader.hlsl"><Filter>Shader Files</Filter></FxCompile>
+    <FxCompile Include="src\SceneVertexShader.hlsl"><Filter>Shader Files</Filter></FxCompile>
+    <None Include="src\SceneShader.hlsli"><Filter>Shader Files</Filter></None>
   </ItemGroup>
 </Project>

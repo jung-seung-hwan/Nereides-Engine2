@@ -53,3 +53,27 @@ void GameObject::RequestDestroy()
         std::cout << "Request destroy: " << m_name << '\n';
     }
 }
+
+void GameObject::SavePreviousTransform()
+{
+    m_previousTransform = transform;
+    m_hasPreviousTransform = true;
+}
+
+Transform GameObject::InterpolatedTransform(float alpha) const
+{
+    // 직전 값이 없으면 섞을 출발점이 없다. 원점에서 끌려오지 않게 현재 값을 그대로 쓴다.
+    if (!m_hasPreviousTransform)
+        return transform;
+    return Lerp(m_previousTransform, transform, alpha);
+}
+
+void GameObject::AddDrawItems(RenderFrame& frame, const DirectX::XMFLOAT4X4& world) const
+{
+    // Update와 같은 규칙: 꺼진 컴포넌트는 부르지 않는다. 객체의 활성 여부는 수집 함수가 먼저 본다.
+    for (const auto& component : m_components)
+    {
+        if (component->IsEnabled())
+            component->AddDrawItems(frame, world);
+    }
+}

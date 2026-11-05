@@ -1,6 +1,7 @@
 #include "Application.h"
 #include "InputTimeTests.h"
 #include "LifecycleTests.h"
+#include "RenderTests.h"
 #include "WindowTests.h"
 #include <exception>
 #include <iostream>
@@ -10,7 +11,8 @@ namespace
 {
 void PrintUsage()
 {
-    std::cerr << "Usage: NereidesEngine2.exe [--demo | --lifecycle-tests | --input-time-tests | --window-tests]\n";
+    std::cerr << "Usage: NereidesEngine2.exe [--demo | --lifecycle-tests | --input-time-tests | --window-tests"
+                 " | --render-tests]\n";
     std::cerr << "Run without arguments to open the window.\n";
 }
 }
@@ -35,6 +37,8 @@ int main(int argc, char* argv[])
                 return RunInputTimeTests();
             if (option == "--window-tests")
                 return RunWindowTests();
+            if (option == "--render-tests")
+                return RunRenderTests();
             if (option != "--demo")
             {
                 // 알 수 없는 인자로 창이 열리면 CI가 멈춘다. 사용법을 알리고 끝낸다.
