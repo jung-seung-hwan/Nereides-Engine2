@@ -18,16 +18,16 @@ namespace
 // 데모 프레임마다 흐른 실제 시간(초).
 const double DemoFrameSeconds[] = {0.10, 0.05, 0.05, 0.10, 0.20, 1.00, 0.10};
 // 로그를 읽기 쉽게 tick을 크게 잡는다.
-const double DemoTickSeconds = 0.1;
+const double DemoFixedDeltaTime = 0.1;
 const int DemoMaxTicksPerFrame = 3;
 
-// 창 모드는 실제 게임에서 흔히 쓰는 값을 쓴다.
-const double WindowTickSeconds = 1.0 / 60.0;
+// 창 모드의 tick 길이는 유니티의 기본 고정 간격과 같은 0.02초다. 1초에 50번이다.
+const double WindowFixedDeltaTime = 0.02;
 const int WindowMaxTicksPerFrame = 5;
 const int WindowWidth = 960;
 const int WindowHeight = 540;
-// 창 모드의 위치 로그 간격. 30 tick은 0.5초다.
-const int WindowLogEveryTicks = 30;
+// 창 모드의 위치 로그 간격. 0.02초 × 25 tick = 0.5초다.
+const int WindowLogEveryTicks = 25;
 
 const float PlayerSpeed = 1.0f; // 초당 이동 거리
 
@@ -40,11 +40,11 @@ const float CameraNearPlane = 0.1f;
 const float CameraFarPlane = 100.0f;
 const float CameraPitchRadians = 0.44f; // 약 25도. 양수면 아래를 본다
 
-double TickSecondsFor(RunMode mode)
+double FixedDeltaTimeFor(RunMode mode)
 {
     if (mode == RunMode::Demo)
-        return DemoTickSeconds;
-    return WindowTickSeconds;
+        return DemoFixedDeltaTime;
+    return WindowFixedDeltaTime;
 }
 
 int MaxTicksFor(RunMode mode)
@@ -58,7 +58,7 @@ int MaxTicksFor(RunMode mode)
 // Time과 Scene은 기본 생성자가 없으므로 초기화 목록에서 만든다.
 // Scene에는 앞에서 만든 Input과 Time을 넘긴다. Window와 Renderer는 Initialize에서 창 모드일 때만 만든다.
 Application::Application(RunMode mode)
-    : m_mode(mode), m_time(TickSecondsFor(mode), MaxTicksFor(mode)), m_scene(m_input, m_time)
+    : m_mode(mode), m_time(FixedDeltaTimeFor(mode), MaxTicksFor(mode)), m_scene(m_input, m_time)
 {
 }
 
@@ -83,7 +83,7 @@ void Application::Initialize()
     }
     else
     {
-        std::cout << "Nereides Engine2 - Stage 3-2: scene rendering\n";
+        std::cout << "Nereides Engine2 - Stage 3-3: Update and FixedUpdate\n";
         std::cout << "W/A/S/D: move, Space: attack, mouse: turn. Close the window to quit.\n";
         // 창을 먼저 만들어야 Renderer가 그 창에 스왑 체인을 붙일 수 있다.
         // Renderer까지 만든 뒤에 창을 보여 준다.
@@ -120,7 +120,7 @@ void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
     player.AddComponent(std::make_unique<ModelRenderer>(player, m_boxMesh, PlayerColor));
 
     // 비활성 객체는 그리지 않으므로 창 모드의 Kraken은 켜 둔다.
-    // LogComponent는 달지 않는다. 켜 두면 tick마다, 곧 초당 60줄을 찍기 때문이다.
+    // LogComponent는 달지 않는다. 켜 두면 tick마다, 곧 초당 50줄을 찍기 때문이다.
     kraken.transform.position.y = 1.0f;
     kraken.transform.scale = {2.0f, 2.0f, 2.0f};
     kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, m_boxMesh, KrakenColor));
@@ -143,9 +143,15 @@ void Application::RunWindow()
     bool wasMinimized = false;
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
 
-    // 1. 쌓인 창 메시지를 처리한다. 키·마우스는 이 안에서 Input에 수집된다.
-    while (m_window->ProcessMessages())
+    // 종료 조건은 루프 안의 if에서 확인한다. 닫기 요청을 받으면 break로 루프를 빠져나가 Shutdown으로 간다.
+    while (true)
     {
+        // 1. 쌓인 창 메시지를 처리한다. 키·마우스는 이 안에서 Input에 수집된다.
+        m_window->ProcessMessages();
+        // 닫기 요청을 받았으면 이번 프레임은 tick도 그리기도 하지 않고 끝낸다.
+        if (m_window->IsCloseRequested())
+            break;
+
         // 2. 창 상태를 반영한다. Window는 기록만 했고, 크기 변경과 정지 요청은 메시지 처리가 끝난 여기서 한다.
         const bool minimized = m_window->IsMinimized();
         // 최소화 중에는 스왑 체인 크기를 바꾸지 않는다. 바뀐 크기는 기록에 남겨 두었다가 복원한 뒤 반영한다.
@@ -170,14 +176,19 @@ void Application::RunWindow()
         }
 
         // 3. 지난 프레임부터 흐른 실제 시간을 재서 Time에 넣고, 정해진 횟수만큼 tick을 실행한다.
-        // 이 시간을 흔히 deltaTime이라 부른다. 정지·배속을 적용하기 전 값이고, 게임 코드는 이 값 대신 고정 tick 길이를 쓴다.
+        // 이 시간은 정지·배속을 적용하기 전 값이라 unscaledDeltaTime이라 부른다.
+        // 게임 코드는 이 값 대신 FixedUpdate에서 FixedDeltaTime()을, Update에서 DeltaTime()을 읽는다.
         const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-        const double deltaTime = std::chrono::duration<double>(now - last).count();
+        const double unscaledDeltaTime = std::chrono::duration<double>(now - last).count();
         last = now;
 
-        const int tickCount = m_time.BeginFrame(deltaTime);
+        const int tickCount = m_time.BeginFrame(unscaledDeltaTime);
         for (int tick = 1; tick <= tickCount; ++tick)
             RunTick(tick, tickCount);
+
+        // 4. 모든 tick이 끝난 뒤 프레임마다 한 번 Update를 부른다.
+        // 최소화(정지) 중에도 부른다. 그때 DeltaTime()은 0이다.
+        m_scene.Update();
 
         // 최소화 중에는 보이는 화면이 없어 수집도 그리기도 하지 않는다.
         if (minimized)
@@ -187,13 +198,13 @@ void Application::RunWindow()
             continue;
         }
 
-        // 4. 모든 tick이 끝난 뒤 Scene을 읽어 이번 프레임에 그릴 값을 만든다.
+        // 5. 모든 tick과 Update가 끝난 뒤 Scene을 읽어 이번 프레임에 그릴 값을 만든다.
         // 보간 계수만큼 직전 tick과 현재 tick 사이를 섞는다. 화면 비율은 창 안쪽의 너비 ÷ 높이다.
         const float aspect = static_cast<float>(m_window->GetWidth()) / static_cast<float>(m_window->GetHeight());
         const float alpha = static_cast<float>(m_time.InterpolationAlpha());
         const RenderFrame frame = CollectRenderFrame(m_scene, *m_camera, aspect, alpha);
 
-        // 5. 지우기, 그리기, 창에 보내기를 한 번에 한다.
+        // 6. 지우기, 그리기, 창에 보내기를 한 번에 한다.
         m_renderer->Render(frame);
     }
 }
@@ -210,6 +221,9 @@ void Application::RunDemo()
             RunTick(tick, tickCount);
         if (tickCount == 0)
             std::cout << "  (no tick: collected input waits for the next tick)\n";
+        // 창 모드와 같이 모든 tick 뒤에 프레임마다 한 번 부른다.
+        // 데모의 컴포넌트는 Update를 재정의하지 않아서 출력은 단계 2와 같다.
+        m_scene.Update();
         PrintDemoRender();
     }
 }
@@ -256,10 +270,10 @@ void Application::ReadDemoInput(int frame)
 
 int Application::AdvanceDemoTime(int frame)
 {
-    const double deltaTime = DemoFrameSeconds[frame - 1];
-    const int tickCount = m_time.BeginFrame(deltaTime);
+    const double unscaledDeltaTime = DemoFrameSeconds[frame - 1];
+    const int tickCount = m_time.BeginFrame(unscaledDeltaTime);
 
-    std::cout << "  2. Time      real+" << deltaTime
+    std::cout << "  2. Time      real+" << unscaledDeltaTime
               << " ticks=" << tickCount
               << " scale=" << m_time.Scale()
               << " paused=" << (m_time.IsPaused() ? "yes" : "no")
@@ -272,7 +286,7 @@ int Application::AdvanceDemoTime(int frame)
 
 void Application::RunTick(int tick, int tickCount)
 {
-    // tick 단계 로그는 스크립트 데모에서만 쓴다. 창 모드에서는 초당 60번이라 너무 많다.
+    // tick 단계 로그는 스크립트 데모에서만 쓴다. 창 모드에서는 초당 50번이라 너무 많다.
     const bool showSteps = m_mode == RunMode::Demo;
 
     // tick 안의 시뮬레이션 시간은 이 tick이 시작한 시각이다.
@@ -284,7 +298,8 @@ void Application::RunTick(int tick, int tickCount)
     m_scene.SavePreviousTransforms();
     if (showSteps)
         std::cout << "    3. Objects\n";
-    m_scene.Update();
+    // 게임 상태를 바꾸는 갱신. 컴포넌트는 FixedDeltaTime()과 이번 tick의 입력을 읽는다.
+    m_scene.FixedUpdate();
     UpdateAnimation();
     CheckCollision();
     // tick 하나를 마쳤다. 시뮬레이션 시간이 tick 길이만큼 늘어난다.

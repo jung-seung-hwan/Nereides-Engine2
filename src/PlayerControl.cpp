@@ -19,7 +19,7 @@ PlayerControl::PlayerControl(GameObject& owner, float speed, int logEveryTicks)
         throw std::invalid_argument("Log interval must be at least 1 tick.");
 }
 
-void PlayerControl::Update()
+void PlayerControl::FixedUpdate()
 {
     Transform& transform = GetOwner().transform;
     const Input& input = GetInput();
@@ -42,7 +42,7 @@ void PlayerControl::Update()
     if (length > 0.0f)
     {
         // tick 길이는 배속과 관계없이 항상 같다. 배속은 tick 수를 바꾼다.
-        const float step = m_speed * static_cast<float>(time.TickSeconds());
+        const float step = m_speed * static_cast<float>(time.FixedDeltaTime());
         transform.position.x += moveX / length * step;
         transform.position.z += moveZ / length * step;
     }

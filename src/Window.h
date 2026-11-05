@@ -21,8 +21,10 @@ public:
 
     void Show();
 
-    // 쌓인 메시지를 모두 처리한다. 닫기 요청을 받았으면 false를 돌려준다.
-    bool ProcessMessages();
+    // 쌓인 메시지를 모두 처리한다. 닫기 요청을 받으면 기록만 한다.
+    void ProcessMessages();
+    // 닫기 요청을 받았으면 true다. 한 번 true가 되면 계속 true다. 루프를 끝낼지는 Application이 이 값으로 정한다.
+    bool IsCloseRequested() const { return m_closeRequested; }
 
     HWND GetHandle() const { return m_handle; }
     int GetWidth() const { return m_width; }

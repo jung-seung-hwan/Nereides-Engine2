@@ -26,6 +26,9 @@ public:
     bool IsActive() const { return m_active; }
     void SetActive(bool active);
     void AddComponent(std::unique_ptr<Component> component);
+    // 켜진 컴포넌트의 FixedUpdate를 부른다. Scene이 tick마다 부른다.
+    void FixedUpdate();
+    // 켜진 컴포넌트의 Update를 부른다. Scene이 프레임마다 한 번 부른다.
     void Update();
 
     // 즉시 delete하지 않고 Scene에 정리를 요청한다.
@@ -46,6 +49,9 @@ public:
     Transform transform;
 
 private:
+    // FixedUpdate와 Update가 함께 쓰는 순회. fixedStep이 true면 FixedUpdate를, false면 Update를 부른다.
+    void RunComponents(bool fixedStep);
+
     Scene& m_scene;
     std::string m_name;
     bool m_active = true;
