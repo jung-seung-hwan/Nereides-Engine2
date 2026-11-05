@@ -51,6 +51,7 @@ Application은 Input, Time, Scene 순서로 선언한다. 그래서 Scene이 가
 Scene이 참조하는 Input과 Time은 Scene보다 늦게 정리되므로, Scene이 살아 있는 동안 참조가 항상 유효하다.
 GameObject가 가진 Scene 참조에는 이 규칙이 필요 없다. Scene이 GameObject를 소유하므로 Scene이 항상 더 오래 산다.
 서비스 참조를 보관하는 곳은 Scene 한 곳뿐이다. 다만 Scene과 Input·Time을 함께 만드는 곳은 어디든 Input과 Time을 먼저 선언해야 한다. 지금은 Application, 시험의 TestWorld, 시험 함수의 지역 변수가 그런 곳이다.
+단계 3-1부터는 Window도 Input을 참조한다. 바뀐 규칙은 [03-1 문서](03-1-window-loop.md)의 "선언 순서가 곧 수명 순서다"에 있다.
 
 ### 단계 2에서 바뀐 단계 1 코드
 
