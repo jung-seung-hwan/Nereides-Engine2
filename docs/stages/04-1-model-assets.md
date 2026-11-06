@@ -2,7 +2,7 @@
 
 목표는 모델 파일 하나를 읽어 엔진의 메시 원본으로 바꾸고, 여러 객체가 그 원본을 함께 쓰게 하는 것이다. 원본의 주인은 새로 만드는 AssetManager다. 이번 단계는 뼈를 움직이지 않고 파일에 든 모양(바인드 포즈) 그대로 그린다. 재생과 스키닝은 [단계 4-2](../issues/04-2-animation-playback.md)다.
 
-이 단계는 [이슈 5](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/5)이고, 선행은 [단계 3-3](03-3-update-split.md)이다. 이슈 5는 처음에 단계 4 전체였는데, 학생이 단계 3처럼 둘로 나누기로 해서 4-1로 고쳐 썼다. 4-2는 [이슈 17](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/17)이다.
+이 단계는 [이슈 5](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/5), [PR 18](https://github.com/jung-seung-hwan/Nereides-Engine2/pull/18)이고, 선행은 [단계 3-3](03-3-update-split.md)이다. 이슈 5는 처음에 단계 4 전체였는데, 학생이 단계 3처럼 둘로 나누기로 해서 4-1로 고쳐 썼다. 4-2는 [이슈 17](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/17)이다.
 
 코드를 쓰기 전에 검증 세션이 단계 4 전환 점검을 했다. 결론은 조건부 진행이고, 3-3 코드에서 고칠 것은 없었다. 조건은 4-1 설계에 세 가지를 정해 적는 것이었다: tick 끝 반영이 덮는 구간과 생성 규칙, 불러온 원본의 소유·수명과 Renderer 캐시 열쇠, 좌표계 변환. 셋 다 아래 "결정 기록"에 있다.
 
