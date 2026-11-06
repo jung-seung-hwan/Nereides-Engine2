@@ -180,6 +180,57 @@ private:
     bool m_spawned = false;
 };
 
+// tick 안의 FixedUpdate에서 객체를 하나 만든다. 만든 객체의 주소를 기억해 두고, 밖에서 그 객체를 계속 쓸 수 있는지 본다.
+class SpawnInTick : public Component
+{
+public:
+    SpawnInTick(GameObject& owner, Counts& counts, GameObject*& spawned)
+        : Component(owner), m_counts(counts), m_spawned(spawned)
+    {
+    }
+    void FixedUpdate() override
+    {
+        if (m_spawned != nullptr)
+            return;
+        GameObject& child = GetOwner().GetScene().CreateObject("spawned in tick");
+        child.AddComponent(std::make_unique<Counter>(child, m_counts));
+        m_spawned = &child;
+    }
+private:
+    Counts& m_counts;
+    GameObject*& m_spawned;
+};
+
+// FixedUpdate에서 자기 객체의 삭제를 요청한 뒤 예외를 던진다.
+class ThrowInFixedUpdate : public Component
+{
+public:
+    ThrowInFixedUpdate(GameObject& owner, Counts& counts) : Component(owner), m_counts(counts) {}
+    ~ThrowInFixedUpdate() override { ++m_counts.destroyed; }
+    void FixedUpdate() override
+    {
+        GetOwner().RequestDestroy();
+        throw std::runtime_error("FixedUpdate failed on purpose.");
+    }
+private:
+    Counts& m_counts;
+};
+
+// tick 안의 FixedUpdate 뒤 단계(단계 4-2의 애니메이션, 단계 5의 충돌)가 객체를 차례로 도는 모습이다.
+// 도중에 생성·Clear가 요청되어도 목록이 바뀌지 않아 끝까지 돌 수 있어야 한다.
+std::size_t WalkObjects(const Scene& scene)
+{
+    std::size_t visited = 0;
+    for (std::size_t i = 0; i < scene.ObjectCount(); ++i)
+    {
+        const GameObject& object = scene.ObjectAt(i);
+        if (object.IsDestroyRequested())
+            continue;
+        ++visited;
+    }
+    return visited;
+}
+
 void TestActive()
 {
     Counts counts;
@@ -373,6 +424,104 @@ void TestUpdateFailure()
         Check(rejected == 3, "The scene must keep working after a rejected nested update.");
     }
 }
+
+// tick 안(BeginTick~EndTick)에서 요청된 생성·삭제·Clear는 EndTick에서 한꺼번에 반영된다.
+// 그 전까지는 목록이 바뀌지 않아, FixedUpdate 뒤의 단계가 객체를 차례로 돌 수 있다.
+void TestTickBoundary()
+{
+    // 생성: tick 안에서 만든 객체는 EndTick까지 목록에 보이지 않고, EndTick 뒤의 다음 tick부터 불린다.
+    // 삭제: tick 안에서 삭제를 요청한 객체는 EndTick까지 목록에 남고, 그동안의 단계는 건너뛴다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts spawned, leaving;
+        GameObject* child = nullptr;
+        GameObject& parent = scene.CreateObject("parent");
+        parent.AddComponent(std::make_unique<SpawnInTick>(parent, spawned, child));
+        // DestroySelf는 자기 이름이 "self"인지 확인한다.
+        GameObject& doomed = scene.CreateObject("self");
+        doomed.AddComponent(std::make_unique<DestroySelf>(doomed, leaving));
+
+        scene.BeginTick();
+        scene.FixedUpdate();
+        Check(child != nullptr && child->GetName() == "spawned in tick", "The created object must be usable at once.");
+        Check(scene.ObjectCount() == 2, "An object created inside a tick must wait until EndTick.");
+        Check(leaving.destroyed == 0 && doomed.IsDestroyRequested(), "A delete request inside a tick must wait until EndTick.");
+        // FixedUpdate 뒤의 단계: 삭제를 기다리는 객체는 건너뛰고, 새 객체는 아직 없다.
+        Check(WalkObjects(scene) == 1, "A later tick stage must see only the surviving objects.");
+        scene.EndTick();
+        Check(scene.ObjectCount() == 2 && leaving.destroyed == 1, "EndTick must apply the creation and the deletion.");
+        Check(spawned.fixedUpdates == 0, "The new object ran before the next tick.");
+
+        scene.BeginTick();
+        scene.FixedUpdate();
+        scene.EndTick();
+        Check(spawned.fixedUpdates == 1, "The new object did not run in the next tick.");
+    }
+
+    // FixedUpdate 뒤의 단계가 객체를 차례로 도는 도중에 생성과 Clear가 요청되어도, 목록은 EndTick까지 그대로다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        Counts counts;
+        for (int i = 0; i < 3; ++i)
+        {
+            GameObject& object = scene.CreateObject("walked");
+            object.AddComponent(std::make_unique<Counter>(object, counts));
+        }
+        scene.BeginTick();
+        scene.FixedUpdate();
+        std::size_t visited = 0;
+        for (std::size_t i = 0; i < scene.ObjectCount(); ++i)
+        {
+            ++visited;
+            if (i == 0)
+            {
+                scene.CreateObject("made during the walk");
+                scene.Clear();
+            }
+            // 생성과 Clear 뒤에도 같은 개수를 돈다. 전에는 여기서 out_of_range가 났다.
+            Check(scene.ObjectCount() == 3, "The object list changed while a tick stage was walking it.");
+        }
+        Check(visited == 3 && counts.destroyed == 0, "The walk must finish before anything is destroyed.");
+        scene.EndTick();
+        Check(scene.ObjectCount() == 0 && counts.destroyed == 3, "EndTick must apply the Clear, including the object made during the walk.");
+    }
+
+    // tick을 겹쳐 시작하거나 시작하지 않은 tick을 끝내면 거부한다.
+    {
+        TestWorld world;
+        Scene& scene = world.scene;
+        bool rejected = false;
+        try { scene.EndTick(); } catch (const std::logic_error&) { rejected = true; }
+        Check(rejected, "EndTick without BeginTick must be rejected.");
+        scene.BeginTick();
+        rejected = false;
+        try { scene.BeginTick(); } catch (const std::logic_error&) { rejected = true; }
+        Check(rejected, "A nested BeginTick must be rejected.");
+        scene.EndTick();
+    }
+}
+
+// tick 안의 FixedUpdate가 예외를 던지면, 그 전에 받은 요청은 그 자리에서 반영되고 Scene은 계속 쓸 수 있다.
+void TestTickFailure()
+{
+    TestWorld world;
+    Scene& scene = world.scene;
+    Counts failing;
+    GameObject& object = scene.CreateObject("failing in tick");
+    object.AddComponent(std::make_unique<ThrowInFixedUpdate>(object, failing));
+    scene.BeginTick();
+    bool thrown = false;
+    try { scene.FixedUpdate(); } catch (const std::runtime_error&) { thrown = true; }
+    Check(thrown, "An exception from FixedUpdate must reach the caller.");
+    Check(failing.destroyed == 1 && scene.ObjectCount() == 0, "A delete request before an exception must still apply.");
+    // 예외 뒤에도 tick을 정상적으로 끝내고 다음 tick을 시작할 수 있다.
+    scene.EndTick();
+    scene.BeginTick();
+    scene.FixedUpdate();
+    scene.EndTick();
+}
 }
 
 int RunLifecycleTests()
@@ -387,7 +536,9 @@ int RunLifecycleTests()
         TestFixedUpdateAndUpdateSplit();
         TestUpdateBoundary();
         TestUpdateFailure();
-        std::cout << "Lifecycle tests PASS (8 cases)\n";
+        TestTickBoundary();
+        TestTickFailure();
+        std::cout << "Lifecycle tests PASS (10 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

@@ -1,4 +1,5 @@
 #pragma once
+#include "AssetManager.h"
 #include "Input.h"
 #include "RenderFrame.h"
 #include "Renderer.h"
@@ -44,13 +45,13 @@ private:
 
     // 멤버는 선언 순서대로 생성되고 반대 순서로 정리된다. 참조되는 쪽을 먼저 선언한다.
     // Window는 Input을 참조한다. Renderer의 스왑 체인은 창에 그림을 보낸다. Scene은 Input과 Time을 참조한다.
-    // Scene 안의 ModelRenderer는 메시 원본을 가리키고, Renderer는 원본 주소로 GPU 버퍼를 기억한다.
-    // 그래서 정리는 Scene, Renderer, Window, 메시 원본, Time, Input 순서다.
+    // Scene 안의 ModelRenderer는 메시 원본(AssetManager의 모델이나 아래 MeshData)을 가리키고,
+    // Renderer는 원본 주소로 GPU 버퍼를 기억한다. 그래서 정리는 Scene, Renderer, Window, 원본들, Time, Input 순서다.
     RunMode m_mode;
     Input m_input;
     Time m_time;
-    MeshData m_boxMesh;                   // 창 모드에서 채운다. Player와 Kraken이 함께 쓴다
-    MeshData m_floorMesh;                 // 창 모드에서 채운다
+    AssetManager m_assets;                // 불러온 모델 원본의 주인. 창 모드에서 BuildWindowScene이 채운다
+    MeshData m_floorMesh;                 // 창 모드에서 채운다. 코드로 만드는 바닥은 그대로 둔다
     std::unique_ptr<Window> m_window;     // 창 모드에서만 만든다
     std::unique_ptr<Renderer> m_renderer; // 창 모드에서만 만든다
     Scene m_scene;

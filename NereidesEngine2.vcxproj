@@ -31,11 +31,12 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <!-- 셰이더를 컴파일해 만든 헤더가 중간 폴더에 생긴다. src가 아니라서 Time.h 이름과 부딪히지 않는다. -->
-      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- third_party: 외부 라이브러리 소스(cgltf). #include <cgltf/cgltf.h>로 쓴다. src는 넣지 않는다. -->
+      <AdditionalIncludeDirectories>$(IntDir);$(MSBuildProjectDirectory)\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link><SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>d3d11.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
   </ItemDefinitionGroup>
@@ -48,6 +49,10 @@
   <ItemGroup>
     <ClCompile Include="src\Application.cpp" />
     <ClInclude Include="src\Application.h" />
+    <ClCompile Include="src\AssetManager.cpp" />
+    <ClInclude Include="src\AssetManager.h" />
+    <ClCompile Include="src\AssetTests.cpp" />
+    <ClInclude Include="src\AssetTests.h" />
     <ClCompile Include="src\CameraComponent.cpp" />
     <ClInclude Include="src\CameraComponent.h" />
     <ClCompile Include="src\CollectRenderFrame.cpp" />
@@ -56,6 +61,9 @@
     <ClInclude Include="src\Component.h" />
     <ClCompile Include="src\GameObject.cpp" />
     <ClInclude Include="src\GameObject.h" />
+    <ClCompile Include="src\GltfLoader.cpp" />
+    <ClInclude Include="src\GltfLoader.h" />
+    <ClInclude Include="third_party\cgltf\cgltf.h" />
     <ClCompile Include="src\Input.cpp" />
     <ClInclude Include="src\Input.h" />
     <ClCompile Include="src\InputTimeTests.cpp" />
@@ -105,6 +113,8 @@
       <ObjectFileOutput></ObjectFileOutput>
     </FxCompile>
     <None Include="src\SceneShader.hlsli" />
+    <None Include="assets\test\arrow.gltf" />
+    <None Include="tools\make_test_model.py" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

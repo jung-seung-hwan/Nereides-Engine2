@@ -4,10 +4,16 @@
     <Filter Include="Source Files"><UniqueIdentifier>{C6B440FC-486D-45FD-A527-83FB49A8DB9A}</UniqueIdentifier></Filter>
     <Filter Include="Header Files"><UniqueIdentifier>{636277AC-66DD-4587-B90F-7B49284878AA}</UniqueIdentifier></Filter>
     <Filter Include="Shader Files"><UniqueIdentifier>{5B2D8A61-3F4C-4E7A-9C1D-2A6B8E9F0C13}</UniqueIdentifier></Filter>
+    <Filter Include="Third Party"><UniqueIdentifier>{A1C2E3F4-5B6D-4E7F-8A9B-0C1D2E3F4A5B}</UniqueIdentifier></Filter>
+    <Filter Include="Assets"><UniqueIdentifier>{B2D3F4A5-6C7E-4F8A-9B0C-1D2E3F4A5B6C}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Application.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Application.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\AssetManager.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\AssetManager.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\AssetTests.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\AssetTests.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\CameraComponent.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\CameraComponent.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\CollectRenderFrame.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -16,6 +22,9 @@
     <ClInclude Include="src\Component.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\GameObject.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\GameObject.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\GltfLoader.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\GltfLoader.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="third_party\cgltf\cgltf.h"><Filter>Third Party</Filter></ClInclude>
     <ClCompile Include="src\Input.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Input.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\InputTimeTests.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -48,5 +57,7 @@
     <FxCompile Include="src\ScenePixelShader.hlsl"><Filter>Shader Files</Filter></FxCompile>
     <FxCompile Include="src\SceneVertexShader.hlsl"><Filter>Shader Files</Filter></FxCompile>
     <None Include="src\SceneShader.hlsli"><Filter>Shader Files</Filter></None>
+    <None Include="assets\test\arrow.gltf"><Filter>Assets</Filter></None>
+    <None Include="tools\make_test_model.py"><Filter>Assets</Filter></None>
   </ItemGroup>
 </Project>

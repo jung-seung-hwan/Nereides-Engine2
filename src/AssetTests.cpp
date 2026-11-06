@@ -1,0 +1,145 @@
+#include "AssetTests.h"
+#include "AssetManager.h"
+#include <DirectXMath.h>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+
+namespace
+{
+const char* TestModelPath = "assets/test/arrow.gltf";
+
+void Check(bool condition, const char* message)
+{
+    if (!condition)
+        throw std::runtime_error(message);
+}
+
+bool Contains(const std::string& text, const char* piece)
+{
+    return text.find(piece) != std::string::npos;
+}
+
+// 시험 모델: tools/make_test_model.py가 만든 화살표. 정점 72개, 삼각형 36개, 뼈 2개, 클립 "bend" 1개.
+void TestLoadTestModel(const std::string& root)
+{
+    AssetManager assets(root);
+    const ModelData& model = assets.LoadModel(TestModelPath);
+    Check(model.path == TestModelPath, "The model must remember the requested path.");
+    Check(model.mesh.vertices.size() == 72, "The arrow must have 72 vertices.");
+    Check(model.mesh.indices.size() == 108, "The arrow must have 108 indices (36 triangles).");
+    Check(model.boneCount == 2, "The arrow must report 2 bones.");
+    Check(model.clipNames.size() == 1 && model.clipNames[0] == "bend", "The arrow must report one clip named bend.");
+}
+
+// 좌표계 변환: glTF의 오른손 좌표계를 엔진의 왼손 좌표계로 바꾼 결과를 본다.
+void TestCoordinateConversion(const std::string& root)
+{
+    AssetManager assets(root);
+    const MeshData& mesh = assets.LoadModel(TestModelPath).mesh;
+
+    // 화살표는 glTF의 +Z로 뻗는다. 엔진에서도 앞은 +Z여야 한다(끝이 z=1.4).
+    // 날개는 glTF의 -X 쪽에 있다. X를 뒤집었으므로 엔진에서는 +X 쪽(x가 0.1 이상)에 있어야 하고, -0.1보다 작은 x는 없어야 한다.
+    float maxZ = 0.0f, minX = 0.0f, maxX = 0.0f;
+    for (const MeshVertex& vertex : mesh.vertices)
+    {
+        if (vertex.position.z > maxZ) maxZ = vertex.position.z;
+        if (vertex.position.x < minX) minX = vertex.position.x;
+        if (vertex.position.x > maxX) maxX = vertex.position.x;
+    }
+    Check(maxZ > 1.39f && maxZ < 1.41f, "The arrow must still point to +Z after conversion.");
+    Check(maxX > 0.39f && maxX < 0.41f, "The wing must be on the +X side after flipping X.");
+    Check(minX > -0.26f, "No vertex may remain on the far -X side after flipping X.");
+
+    // 앞면 규칙: 3-2의 상자와 같은 검사다. 삼각형 (a, b, c)의 (b-a)×(c-a)가 법선 쪽을 향하면 바깥에서 볼 때 시계 방향이다.
+    for (std::size_t i = 0; i + 2 < mesh.indices.size(); i += 3)
+    {
+        const MeshVertex& a = mesh.vertices[mesh.indices[i]];
+        const MeshVertex& b = mesh.vertices[mesh.indices[i + 1]];
+        const MeshVertex& c = mesh.vertices[mesh.indices[i + 2]];
+        const DirectX::XMVECTOR pa = DirectX::XMLoadFloat3(&a.position);
+        const DirectX::XMVECTOR pb = DirectX::XMLoadFloat3(&b.position);
+        const DirectX::XMVECTOR pc = DirectX::XMLoadFloat3(&c.position);
+        const DirectX::XMVECTOR face = DirectX::XMVector3Cross(DirectX::XMVectorSubtract(pb, pa),
+                                                               DirectX::XMVectorSubtract(pc, pa));
+        const float facing = DirectX::XMVectorGetX(DirectX::XMVector3Dot(face, DirectX::XMLoadFloat3(&a.normal)));
+        Check(facing > 0.0f, "Every loaded triangle must be clockwise when seen from outside.");
+        // 법선 길이는 1이어야 한다.
+        const float length = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMLoadFloat3(&a.normal)));
+        Check(length > 0.999f && length < 1.001f, "Every normal must have length 1.");
+    }
+}
+
+// 공유: 같은 경로를 두 번 요청하면 파일을 다시 읽지 않고 같은 원본(같은 주소)을 돌려준다.
+void TestSharing(const std::string& root)
+{
+    AssetManager assets(root);
+    const ModelData& first = assets.LoadModel(TestModelPath);
+    const ModelData& second = assets.LoadModel(TestModelPath);
+    Check(&first == &second, "The same path must return the same model.");
+    Check(assets.ModelCount() == 1, "The same path must be loaded only once.");
+}
+
+// 오류 보고: 없는 파일, glTF가 아닌 파일, 지원하지 않는 데이터. 메시지에 경로와 이유가 들어간다.
+void TestErrors(const std::string& root)
+{
+    AssetManager assets(root);
+
+    std::string message;
+    try { assets.LoadModel("assets/test/missing.gltf"); } catch (const std::runtime_error& error) { message = error.what(); }
+    Check(Contains(message, "assets/test/missing.gltf") && Contains(message, "file not found"),
+          "A missing file must be reported with its path.");
+
+    // 시험 파일은 임시 폴더에 만든다. 저장소에 쓰레기 파일을 남기지 않는다.
+    const std::filesystem::path temp = std::filesystem::temp_directory_path() / "nereides-asset-tests";
+    std::filesystem::create_directories(temp);
+    AssetManager tempAssets(temp.string());
+
+    {
+        std::ofstream file(temp / "not-a-model.gltf");
+        file << "hello, this is not a model\n";
+    }
+    message.clear();
+    try { tempAssets.LoadModel("not-a-model.gltf"); } catch (const std::runtime_error& error) { message = error.what(); }
+    Check(Contains(message, "not-a-model.gltf") && Contains(message, "not a glTF file"),
+          "A file that is not glTF must be reported as such.");
+
+    // 시험 모델의 그리기 방식을 삼각형(4)에서 점(0)으로 바꾼 사본을 만든다. 지원하지 않는 데이터다.
+    {
+        std::ifstream source(std::filesystem::path(root) / TestModelPath);
+        std::string text((std::istreambuf_iterator<char>(source)), std::istreambuf_iterator<char>());
+        const std::string::size_type at = text.find("\"mode\": 4");
+        Check(at != std::string::npos, "The test model must declare triangle mode.");
+        text.replace(at, 9, "\"mode\": 0");
+        std::ofstream file(temp / "points.gltf");
+        file << text;
+    }
+    message.clear();
+    try { tempAssets.LoadModel("points.gltf"); } catch (const std::runtime_error& error) { message = error.what(); }
+    Check(Contains(message, "points.gltf") && Contains(message, "unsupported data"),
+          "Unsupported primitive types must be reported as unsupported data.");
+    Check(tempAssets.ModelCount() == 0, "A failed load must not leave a model behind.");
+
+    std::filesystem::remove_all(temp);
+}
+}
+
+int RunAssetTests(const std::string& rootFolder)
+{
+    try
+    {
+        TestLoadTestModel(rootFolder);
+        TestCoordinateConversion(rootFolder);
+        TestSharing(rootFolder);
+        TestErrors(rootFolder);
+        std::cout << "Asset tests PASS (4 cases)\n";
+        return 0;
+    }
+    catch (const std::exception& error)
+    {
+        std::cerr << "Asset tests FAIL: " << error.what() << '\n';
+        return 1;
+    }
+}
