@@ -130,7 +130,7 @@ void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
     floor.AddComponent(std::make_unique<ModelRenderer>(floor, m_floorMesh, FloorColor));
 
     GameObject& cameraObject = m_scene.CreateObject("Camera");
-    cameraObject.transform.position = {0.0f, 4.0f, -8.0f};
+    cameraObject.transform.position = {0.0f, 4.0f, -16.0f};
     cameraObject.transform.rotation.x = CameraPitchRadians;
     auto camera = std::make_unique<CameraComponent>(cameraObject, CameraFovDegrees, CameraNearPlane, CameraFarPlane);
     // GameObject에 넘기기 전에 주소를 기억해 둔다. unique_ptr을 옮겨도 가리키는 객체의 주소는 그대로다.
