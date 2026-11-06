@@ -31,6 +31,9 @@ const int WindowLogEveryTicks = 25;
 
 const float PlayerSpeed = 1.0f; // 초당 이동 거리
 
+// 창 모드의 모델. 저장소의 작은 시험 모델이다. 경로는 저장소 루트 기준이다.
+const char* CharacterModelPath = "assets/test/arrow.gltf";
+
 // 창 모드 장면의 값. 바닥 위에 상자 두 개를 놓고, 카메라가 앞 위에서 내려다본다.
 const DirectX::XMFLOAT4 FloorColor = {0.45f, 0.47f, 0.50f, 1.0f};
 const DirectX::XMFLOAT4 PlayerColor = {0.25f, 0.50f, 0.95f, 1.0f};
@@ -58,7 +61,8 @@ int MaxTicksFor(RunMode mode)
 // Time과 Scene은 기본 생성자가 없으므로 초기화 목록에서 만든다.
 // Scene에는 앞에서 만든 Input과 Time을 넘긴다. Window와 Renderer는 Initialize에서 창 모드일 때만 만든다.
 Application::Application(RunMode mode)
-    : m_mode(mode), m_time(FixedDeltaTimeFor(mode), MaxTicksFor(mode)), m_scene(m_input, m_time)
+    : m_mode(mode), m_time(FixedDeltaTimeFor(mode), MaxTicksFor(mode)), m_assets(AssetManager::FindRootFolder()),
+      m_scene(m_input, m_time)
 {
 }
 
@@ -83,7 +87,7 @@ void Application::Initialize()
     }
     else
     {
-        std::cout << "Nereides Engine2 - Stage 3-3: Update and FixedUpdate\n";
+        std::cout << "Nereides Engine2 - Stage 4-1: model assets\n";
         std::cout << "W/A/S/D: move, Space: attack, mouse: turn. Close the window to quit.\n";
         // 창을 먼저 만들어야 Renderer가 그 창에 스왑 체인을 붙일 수 있다.
         // Renderer까지 만든 뒤에 창을 보여 준다.
@@ -111,19 +115,21 @@ void Application::Initialize()
 
 void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
 {
-    // 메시 원본을 먼저 채운다. ModelRenderer는 이 원본을 가리키기만 한다.
-    m_boxMesh = MakeBox();
+    // 원본을 먼저 준비한다. 모델은 AssetManager가 파일에서 읽어 갖고, 바닥은 코드로 만든다.
+    // ModelRenderer는 이 원본들을 가리키기만 한다. 파일이 없거나 잘못되면 여기서 예외가 나고 main이 알린다.
+    const ModelData& character = m_assets.LoadModel(CharacterModelPath);
     m_floorMesh = MakeFloor();
 
-    // 상자는 중심이 원점이라 높이의 절반만큼 올려 바닥 위에 세운다.
-    player.transform.position.y = 0.5f;
-    player.AddComponent(std::make_unique<ModelRenderer>(player, m_boxMesh, PlayerColor));
+    // 화살표 모델은 원점에서 +Z로 뻗는다. 바닥(y=0) 위에 조금 띄워 놓는다.
+    player.transform.position.y = 0.3f;
+    player.AddComponent(std::make_unique<ModelRenderer>(player, character.mesh, PlayerColor));
 
+    // Kraken도 같은 원본을 쓴다. 원본은 한 번만 읽히고 GPU 버퍼도 한 벌이다. 크기와 색만 다르다.
     // 비활성 객체는 그리지 않으므로 창 모드의 Kraken은 켜 둔다.
     // LogComponent는 달지 않는다. 켜 두면 tick마다, 곧 초당 50줄을 찍기 때문이다.
-    kraken.transform.position.y = 1.0f;
+    kraken.transform.position.y = 0.6f;
     kraken.transform.scale = {2.0f, 2.0f, 2.0f};
-    kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, m_boxMesh, KrakenColor));
+    kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, character.mesh, KrakenColor));
 
     GameObject& floor = m_scene.CreateObject("Floor");
     floor.transform.scale = {20.0f, 1.0f, 20.0f};
@@ -298,6 +304,8 @@ void Application::RunTick(int tick, int tickCount)
         std::cout << "  Tick " << tick << '/' << tickCount << " sim=" << m_time.SimulationTime() << '\n';
     // tick마다 한 번 소비한다. 행동 Component는 이 결과만 읽는다.
     m_input.ConsumeForTick();
+    // tick 시작. 여기부터 EndTick까지 요청된 생성·삭제·Clear는 EndTick에서 한꺼번에 반영된다.
+    m_scene.BeginTick();
     // 보간에 쓸 직전 Transform을, 이번 tick이 객체를 움직이기 전에 복사한다.
     m_scene.SavePreviousTransforms();
     if (showSteps)
@@ -306,6 +314,8 @@ void Application::RunTick(int tick, int tickCount)
     m_scene.FixedUpdate();
     UpdateAnimation();
     CheckCollision();
+    // tick 끝. 미뤄 둔 생성·삭제를 반영한다. 처음 설계의 "예약 생성·삭제 처리" 단계다.
+    m_scene.EndTick();
     // tick 하나를 마쳤다. 시뮬레이션 시간이 tick 길이만큼 늘어난다.
     m_time.FinishTick();
 }
