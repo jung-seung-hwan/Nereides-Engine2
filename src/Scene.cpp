@@ -72,10 +72,11 @@ void Scene::RunObjects(bool fixedStep)
     }
     catch (...)
     {
-        // 갱신이 실패해도 그 전에 받은 요청은 반영하고, Scene을 다시 쓸 수 있는 상태로 둔다.
-        // tick 안에서 예외가 나면 EndTick이 불리지 않을 수 있으므로 여기서 반영한다.
+        // 갱신이 실패해도 Scene을 다시 쓸 수 있는 상태로 둔다. 요청은 버리지 않는다.
+        // tick 밖이면 지금 반영하고, tick 안이면 반영 경계는 EndTick 하나이므로 그때까지 기다린다.
         m_updating = false;
-        ApplyPendingChanges();
+        if (!m_inTick)
+            ApplyPendingChanges();
         throw;
     }
     m_updating = false;

@@ -29,12 +29,15 @@ public:
     // BeginTick부터 EndTick까지 요청된 생성·삭제·Clear는 EndTick에서 한꺼번에 반영한다.
     // 그래서 tick 안의 어느 단계가 객체를 차례로 도는 동안에도 목록이 바뀌지 않는다.
     // 삭제를 기다리는 객체는 EndTick까지 목록에 남는다. 각 단계는 IsDestroyRequested()인 객체를 건너뛴다.
+    // 갱신이 예외를 던져도 tick은 EndTick으로 끝낸다. Application은 tick 안의 예외를 잡지 않으므로 프로그램이 끝나고,
+    // 예외를 잡는 쪽(시험 코드)은 EndTick을 불러야 다음 BeginTick을 시작할 수 있다.
     void BeginTick();
     void EndTick();
     bool IsInTick() const { return m_inTick; }
 
     // tick마다 부른다. 모든 객체의 FixedUpdate를 부른다.
     // tick 안(BeginTick 뒤)이면 반영은 EndTick이 한다. tick 밖에서 바로 부르면(시험 코드) 끝날 때 바로 반영한다.
+    // 갱신이 예외를 던져도 같은 규칙이다. tick 안의 요청은 EndTick까지 기다리고, tick 밖의 요청은 그 자리에서 반영한다.
     void FixedUpdate();
     // 프레임마다 한 번, 모든 tick이 끝난 뒤 부른다. 모든 객체의 Update를 부르고, 끝나면 생성·삭제 예약을 반영한다.
     // Update에서는 생성·삭제·Clear를 하지 않기로 했다. 끝의 반영은 그 규칙을 어겼을 때 목록이 꼬이지 않게 하는 안전장치다.

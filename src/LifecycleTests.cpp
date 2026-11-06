@@ -503,7 +503,7 @@ void TestTickBoundary()
     }
 }
 
-// tick 안의 FixedUpdate가 예외를 던지면, 그 전에 받은 요청은 그 자리에서 반영되고 Scene은 계속 쓸 수 있다.
+// tick 안의 FixedUpdate가 예외를 던져도 반영 경계는 EndTick 하나다. 그 전의 요청은 EndTick까지 기다리고, Scene은 계속 쓸 수 있다.
 void TestTickFailure()
 {
     TestWorld world;
@@ -515,12 +515,30 @@ void TestTickFailure()
     bool thrown = false;
     try { scene.FixedUpdate(); } catch (const std::runtime_error&) { thrown = true; }
     Check(thrown, "An exception from FixedUpdate must reach the caller.");
-    Check(failing.destroyed == 1 && scene.ObjectCount() == 0, "A delete request before an exception must still apply.");
-    // 예외 뒤에도 tick을 정상적으로 끝내고 다음 tick을 시작할 수 있다.
+    Check(failing.destroyed == 0 && scene.ObjectCount() == 1 && object.IsDestroyRequested(),
+          "Inside a tick, a delete request before an exception must still wait for EndTick.");
     scene.EndTick();
+    Check(failing.destroyed == 1 && scene.ObjectCount() == 0, "EndTick after an exception must apply the request.");
+    // 예외 뒤에도 다음 tick을 시작할 수 있다.
     scene.BeginTick();
     scene.FixedUpdate();
     scene.EndTick();
+}
+
+// tick 안에서 만든 객체를 같은 tick에 삭제 요청하면, 목록에 들어가지 않고 EndTick에서 바로 사라진다.
+void TestCreateAndDestroyInTick()
+{
+    TestWorld world;
+    Scene& scene = world.scene;
+    Counts counts;
+    scene.BeginTick();
+    GameObject& shortLived = scene.CreateObject("short-lived");
+    shortLived.AddComponent(std::make_unique<Counter>(shortLived, counts));
+    shortLived.RequestDestroy();
+    Check(scene.ObjectCount() == 0 && counts.destroyed == 0, "The object must wait in the pending list until EndTick.");
+    scene.EndTick();
+    Check(scene.ObjectCount() == 0 && counts.destroyed == 1 && counts.fixedUpdates == 0,
+          "An object created and destroyed in the same tick must never enter the list or run.");
 }
 }
 
@@ -538,7 +556,8 @@ int RunLifecycleTests()
         TestUpdateFailure();
         TestTickBoundary();
         TestTickFailure();
-        std::cout << "Lifecycle tests PASS (10 cases)\n";
+        TestCreateAndDestroyInTick();
+        std::cout << "Lifecycle tests PASS (11 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

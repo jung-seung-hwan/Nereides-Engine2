@@ -56,14 +56,25 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
     DirectX::XMMATRIX nodeToWorld = DirectX::XMMatrixIdentity();
     if (node.skin == nullptr)
     {
-        // glTF 행렬은 열 우선(column-major)이다. XMFLOAT4X4에 그대로 넣으면 행 우선으로 읽혀 전치된 꼴이 되므로 다시 전치한다.
+        // glTF 행렬은 열 우선(column-major)으로 16개가 늘어서 있고, 이동 값은 13~15번째다.
+        // DirectXMath의 행 벡터 관례에서는 이동 값이 넷째 행(_41~_43)에 있는데, 16개를 차례로 넣으면 바로 그 자리에 들어간다.
+        // 그래서 전치하지 않고 그대로 쓴다. 메모리에 놓인 순서가 같기 때문이다.
         cgltf_float world[16];
         cgltf_node_transform_world(&node, world);
         DirectX::XMFLOAT4X4 stored;
         for (int i = 0; i < 16; ++i)
             (&stored._11)[i] = world[i];
-        nodeToWorld = DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&stored));
+        nodeToWorld = DirectX::XMLoadFloat4x4(&stored);
     }
+    // 행렬식이 0이면(크기에 0이 있으면) 역행렬이 없고 메시가 납작해진다. 그런 노드는 받지 않는다.
+    const float determinant = DirectX::XMVectorGetX(DirectX::XMMatrixDeterminant(nodeToWorld));
+    if (determinant > -1e-8f && determinant < 1e-8f)
+        throw LoadError(displayPath, "unsupported data (a node has a zero scale)");
+    // 법선은 위치와 같은 행렬로 돌리면 안 된다. 크기가 축마다 다르면(비균등) 면과 수직이 아니게 된다.
+    // 역행렬의 전치가 법선용 행렬이다. 크기가 같으면 두 행렬은 같은 방향을 준다.
+    const DirectX::XMMATRIX normalMatrix = DirectX::XMMatrixTranspose(DirectX::XMMatrixInverse(nullptr, nodeToWorld));
+    // 행렬식이 음수면 노드 변환 자체가 거울이라 삼각형 방향이 한 번 더 뒤집힌다. 그때는 순서를 바꾸지 않아야 다시 맞는다.
+    const bool mirroredNode = determinant < 0.0f;
 
     for (cgltf_size p = 0; p < node.mesh->primitives_count; ++p)
     {
@@ -76,6 +87,8 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
             throw LoadError(displayPath, "unsupported data (a primitive has no POSITION)");
         if (normals == nullptr || normals->count != positions->count)
             throw LoadError(displayPath, "unsupported data (a primitive has no NORMAL for every vertex)");
+        if (positions->type != cgltf_type_vec3 || normals->type != cgltf_type_vec3)
+            throw LoadError(displayPath, "unsupported data (POSITION and NORMAL must be VEC3)");
         if (primitive.indices == nullptr)
             throw LoadError(displayPath, "unsupported data (a primitive has no indices)");
         if (primitive.indices->count % 3 != 0)
@@ -93,7 +106,7 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
             DirectX::XMVECTOR pos = DirectX::XMVectorSet(position[0], position[1], position[2], 1.0f);
             DirectX::XMVECTOR nrm = DirectX::XMVectorSet(normal[0], normal[1], normal[2], 0.0f);
             pos = DirectX::XMVector3TransformCoord(pos, nodeToWorld);
-            nrm = DirectX::XMVector3Normalize(DirectX::XMVector3TransformNormal(nrm, nodeToWorld));
+            nrm = DirectX::XMVector3Normalize(DirectX::XMVector3TransformNormal(nrm, normalMatrix));
 
             MeshVertex vertex;
             DirectX::XMStoreFloat3(&vertex.position, pos);
@@ -112,11 +125,29 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
             if (a >= positions->count || b >= positions->count || c >= positions->count)
                 throw LoadError(displayPath, "unsupported data (an index points outside the vertex array)");
             // X를 뒤집으면 삼각형이 도는 방향도 뒤집힌다. 둘째와 셋째를 바꿔 다시 시계 방향(엔진의 앞면)으로 만든다.
+            // 노드가 거울 변환이면 이미 한 번 뒤집혀 있으므로 그대로 둔다.
             out.indices.push_back(base + static_cast<std::uint32_t>(a));
-            out.indices.push_back(base + static_cast<std::uint32_t>(c));
-            out.indices.push_back(base + static_cast<std::uint32_t>(b));
+            if (mirroredNode)
+            {
+                out.indices.push_back(base + static_cast<std::uint32_t>(b));
+                out.indices.push_back(base + static_cast<std::uint32_t>(c));
+            }
+            else
+            {
+                out.indices.push_back(base + static_cast<std::uint32_t>(c));
+                out.indices.push_back(base + static_cast<std::uint32_t>(b));
+            }
         }
     }
+}
+
+// 노드와 그 자식들을 차례로 읽는다. 자식 안에 또 자식이 있을 수 있어서 자기 자신을 다시 부른다(재귀).
+void AppendNodeTree(const cgltf_node& node, const std::string& displayPath, MeshData& out)
+{
+    if (node.mesh != nullptr)
+        AppendNodeMesh(node, displayPath, out);
+    for (cgltf_size i = 0; i < node.children_count; ++i)
+        AppendNodeTree(*node.children[i], displayPath, out);
 }
 }
 
@@ -147,11 +178,23 @@ ModelData LoadGltf(const std::string& fullPath, const std::string& displayPath)
 
         ModelData model;
         model.path = displayPath;
-        // 장면의 노드를 차례로 돌며 메시가 달린 노드만 읽는다. 메시가 하나도 없으면 그릴 것이 없다.
-        for (cgltf_size i = 0; i < data->nodes_count; ++i)
+        // 파일이 가리키는 장면(없으면 첫 장면)의 뿌리 노드부터 자식을 따라가며 메시가 달린 노드만 읽는다.
+        // 장면에 들어 있지 않은 노드는 그리지 않는다. 장면이 하나도 없으면 모든 노드를 읽는다.
+        const cgltf_scene* scene = data->scene;
+        if (scene == nullptr && data->scenes_count > 0)
+            scene = &data->scenes[0];
+        if (scene != nullptr)
         {
-            if (data->nodes[i].mesh != nullptr)
-                AppendNodeMesh(data->nodes[i], displayPath, model.mesh);
+            for (cgltf_size i = 0; i < scene->nodes_count; ++i)
+                AppendNodeTree(*scene->nodes[i], displayPath, model.mesh);
+        }
+        else
+        {
+            for (cgltf_size i = 0; i < data->nodes_count; ++i)
+            {
+                if (data->nodes[i].mesh != nullptr)
+                    AppendNodeMesh(data->nodes[i], displayPath, model.mesh);
+            }
         }
         if (model.mesh.vertices.empty() || model.mesh.indices.empty())
             throw LoadError(displayPath, "unsupported data (no triangle mesh in the file)");

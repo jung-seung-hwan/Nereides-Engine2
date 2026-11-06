@@ -6,7 +6,7 @@
 // 모델 파일 하나에서 읽은 CPU 원본. AssetManager가 소유하고, ModelRenderer는 안의 mesh를 가리키기만 한다.
 struct ModelData
 {
-    std::string path;                   // 요청한 경로 그대로. 로그와 오류 메시지에 쓴다
+    std::string path;                   // 요청한 상대 경로를 정리한 모양('/' 구분자). 공유의 열쇠이고 로그·오류 메시지에 쓴다
     MeshData mesh;                      // 엔진 좌표계로 바꾼 메시. 파일의 모든 삼각형 묶음을 하나로 합친다
     std::size_t boneCount = 0;          // 스킨의 뼈 개수. 스킨이 없으면 0. 4-2가 쓴다
     std::vector<std::string> clipNames; // 애니메이션 클립 이름들. 4-2가 쓴다
