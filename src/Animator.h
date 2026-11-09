@@ -6,7 +6,7 @@
 
 // 이번 tick에 재생한 구간의 기록. 단계 5의 마커 판정이 읽는다.
 // 보통 tick은 start ≤ m < end 인 마커 m을 지난 것으로 센다.
-// wrapped면 두 토막이다: start ≤ m ≤ 클립 길이, 그리고 0 ≤ m < end.
+// wrapCount가 1 이상이면 토막이 둘이다: start ≤ m ≤ 클립 길이, 그리고 0 ≤ m < end. 그 사이에 클립 전체를 (wrapCount - 1)번 더 지났다.
 // finished면 start ≤ m ≤ 클립 길이다(끝에 놓인 마커를 한 번 세기 위해 닫는다).
 struct TickRecord
 {
@@ -15,7 +15,7 @@ struct TickRecord
     double start = 0.0;    // 이번 tick이 재생한 구간의 시작 시각(클립 안의 초)
     double end = 0.0;      // 구간의 끝 시각. 되감겼으면 되감긴 뒤의 값
     bool started = false;  // 이번 tick에 재생을 시작했나(Play 요청이 적용됐나)
-    bool wrapped = false;  // 반복 클립이 끝을 지나 처음으로 되감겼나
+    int wrapCount = 0;     // 반복 클립이 이번 tick에 끝을 지나 처음으로 되감긴 횟수. 클립이 tick보다 짧으면 2 이상일 수 있다
     bool finished = false; // 반복하지 않는 클립이 이번 tick에 끝에 닿았나. 한 번만 선다
 };
 
@@ -27,15 +27,16 @@ class Animator : public Component
 public:
     Animator(GameObject& owner, const ModelData& model);
 
-    // 재생을 요청한다. 기록만 하고, tick 안의 애니메이션 단계(AdvanceAnimation)에서 적용된다. 그 tick부터 시각 0으로 시작한다.
-    // 재생 중에 부르면 바로 새 클립으로 바뀐다. 같은 클립이면 처음부터 다시 한다. 없는 이름이면 예외를 던진다.
+    // 재생을 요청한다. 요청은 그 자리에서 저장되고, 자세는 같은 tick의 애니메이션 단계(AdvanceAnimation)에서 바뀐다.
+    // 그 tick부터 시각 0으로 시작한다. 재생 중에 부르면 섞지 않고 새 클립으로 넘어간다. 같은 클립이면 처음부터 다시 한다.
+    // 없는 이름이면 예외를 던진다.
     void Play(const std::string& clipName, bool loop);
-    // 재생을 멈춘다. 자세는 그대로 둔다.
+    // 재생을 멈춘다. 자세는 그대로 둔다. 아직 적용되지 않은 Play 요청도 버린다.
     void Stop();
 
     // tick 안, Scene.FixedUpdate 뒤의 애니메이션 단계에서 Scene이 부른다.
     // 요청 적용 → FixedDeltaTime()만큼 진행 → 되감기·끝 처리 → 키에서 자세 읽기 → 뼈 행렬 계산 → 기록.
-    // 정지·배속은 보지 않는다. Application이 tick 수를 정하기 때문이다.
+    // 정지·배속은 보지 않는다(학생 질문 2).
     void AdvanceAnimation() override;
 
     bool IsPlaying() const { return m_playing; }

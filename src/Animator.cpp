@@ -7,6 +7,8 @@
 namespace
 {
 const std::string NoClipName;
+// 0.1을 열 번 더하면 1.0보다 아주 조금 작을 수 있다. 끝에 닿았는지 볼 때만 이 여유를 둔다(Time과 같은 값).
+const double EndEpsilon = 1e-9;
 
 // 채널의 키에서 시각 time의 값을 읽는다. 첫 키 앞은 첫 값, 마지막 키 뒤는 마지막 값이다.
 // 두 키 사이는 이동·크기면 직선으로, 회전이면 사원수 구면 보간(slerp)으로 섞는다. glTF의 LINEAR 회전이 그 뜻이다.
@@ -94,7 +96,7 @@ void Animator::AdvanceAnimation()
         return;
     }
 
-    // 2. tick 하나만큼 진행한다. 배속·정지는 tick 수에 이미 들어 있다.
+    // 2. tick 하나만큼 진행한다. 배속·정지는 여기서 보지 않는다.
     const AnimationClip& clip = m_model->clips[static_cast<std::size_t>(m_clip)];
     const double duration = clip.duration;
     record.played = true;
@@ -103,12 +105,18 @@ void Animator::AdvanceAnimation()
     m_time += GetTime().FixedDeltaTime();
 
     // 3. 끝을 지났으면 반복 클립은 되감고, 아니면 끝에서 멈춘다. 길이가 0인 클립은 되감을 수 없으므로 바로 끝낸다.
-    if (m_time >= duration)
+    //    클립이 tick보다 짧으면 한 tick에 여러 번 되감길 수 있다. 횟수를 세고, 남은 시각이 음수로 가지 않게 한다.
+    if (m_time + EndEpsilon >= duration)
     {
         if (m_loop && duration > 0.0)
         {
-            record.wrapped = true;
-            m_time = std::fmod(m_time, duration);
+            while (m_time + EndEpsilon >= duration)
+            {
+                ++record.wrapCount;
+                m_time -= duration;
+            }
+            if (m_time < 0.0)
+                m_time = 0.0;
         }
         else
         {

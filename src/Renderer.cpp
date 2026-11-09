@@ -195,6 +195,7 @@ void Renderer::CreatePipeline()
 void Renderer::ReleaseDeviceObjects()
 {
     m_meshes.clear();
+    m_boneConstantsAreIdentity = false;
     m_boneConstants.Reset();
     m_itemConstants.Reset();
     m_frameConstants.Reset();
@@ -285,18 +286,23 @@ void Renderer::Render(const RenderFrame& frame)
         m_context->UpdateSubresource(m_itemConstants.Get(), 0, nullptr, &itemConstants, 0, 0);
 
         // 뼈 행렬: 항목이 준 만큼 전치해서 올리고, 나머지 자리는 단위 행렬로 둔다. 뼈가 없는 항목은 전부 단위 행렬이다.
+        // 단위 행렬 전부를 올린 뒤에는 뼈 없는 항목이 이어져도 다시 올리지 않는다(8KB를 항목마다 보내지 않기 위해).
         if (item.bones.size() > static_cast<std::size_t>(MaxBones))
             throw std::invalid_argument("A draw item has more bones than the renderer supports.");
-        BoneConstants boneConstants;
-        for (int i = 0; i < MaxBones; ++i)
+        if (!item.bones.empty() || !m_boneConstantsAreIdentity)
         {
-            if (static_cast<std::size_t>(i) < item.bones.size())
-                DirectX::XMStoreFloat4x4(&boneConstants.bones[i],
-                                         DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item.bones[static_cast<std::size_t>(i)])));
-            else
-                DirectX::XMStoreFloat4x4(&boneConstants.bones[i], DirectX::XMMatrixIdentity());
+            BoneConstants boneConstants;
+            for (int i = 0; i < MaxBones; ++i)
+            {
+                if (static_cast<std::size_t>(i) < item.bones.size())
+                    DirectX::XMStoreFloat4x4(&boneConstants.bones[i],
+                                             DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item.bones[static_cast<std::size_t>(i)])));
+                else
+                    DirectX::XMStoreFloat4x4(&boneConstants.bones[i], DirectX::XMMatrixIdentity());
+            }
+            m_context->UpdateSubresource(m_boneConstants.Get(), 0, nullptr, &boneConstants, 0, 0);
+            m_boneConstantsAreIdentity = item.bones.empty();
         }
-        m_context->UpdateSubresource(m_boneConstants.Get(), 0, nullptr, &boneConstants, 0, 0);
 
         // 정점 하나의 바이트 수(stride)를 알려 줘야 GPU가 다음 정점을 찾는다.
         const UINT stride = sizeof(MeshVertex);

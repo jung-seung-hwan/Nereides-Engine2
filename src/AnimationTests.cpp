@@ -244,7 +244,7 @@ void TestInputConnection(const ModelData& model)
     Check(first.played && first.started && first.clip == model.FindClip("bend"),
           "The attack tick must start the bend clip.");
     Check(Near(first.start, 0.0) && Near(first.end, 0.1), "The start tick plays from 0 to 0.1 s.");
-    Check(!first.wrapped && !first.finished, "The start tick neither wraps nor finishes.");
+    Check(first.wrapCount == 0 && !first.finished, "The start tick neither wraps nor finishes.");
     Check(animator.IsPlaying() && animator.ClipName() == "bend" && !animator.IsLooping(),
           "After the attack the Animator plays bend once.");
 
@@ -255,26 +255,41 @@ void TestInputConnection(const ModelData& model)
           "The next tick continues from 0.1 to 0.2 s without the started flag.");
 }
 
-// 5. 반복·되감김: 1초 클립을 0.25초 tick으로 돌리면 4번째 tick에 되감긴다(0.25는 이진수로 정확해서 합이 딱 1이 된다).
+// 5. 반복·되감김: 1초 클립을 0.1초 tick으로 돌리면 10번째 tick에 되감긴다.
+// 0.1을 열 번 더하면 1.0보다 아주 조금 작을 수 있다. Animator가 끝 판정에 작은 여유를 두므로 11번째로 밀리지 않아야 한다.
 void TestLoopWrap(const ModelData& model)
 {
-    TestWorld world(0.25);
+    TestWorld world(0.1);
     GameObject& object = world.scene.CreateObject("loop");
     Animator& animator = AddAnimator(object, model);
     animator.Play("bend", true);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 9; ++i)
     {
         RunTick(world.scene, world.input, world.time);
-        Check(!animator.LastTick().wrapped, "The first three ticks do not wrap.");
+        Check(animator.LastTick().wrapCount == 0, "The first nine ticks do not wrap.");
     }
     RunTick(world.scene, world.input, world.time);
     const TickRecord& wrap = animator.LastTick();
-    Check(wrap.played && wrap.wrapped && !wrap.finished, "The fourth tick wraps around.");
-    Check(Near(wrap.start, 0.75) && Near(wrap.end, 0.0), "The wrapping tick runs from 0.75 to the end and lands on 0.");
+    Check(wrap.played && wrap.wrapCount == 1 && !wrap.finished, "The tenth tick wraps around once.");
+    Check(Near(wrap.start, 0.9) && Near(wrap.end, 0.0), "The wrapping tick runs from 0.9 to the end and lands on 0.");
     Check(animator.IsPlaying(), "A looping clip keeps playing after it wraps.");
     RunTick(world.scene, world.input, world.time);
     const TickRecord& after = animator.LastTick();
-    Check(!after.wrapped && Near(after.start, 0.0) && Near(after.end, 0.25), "After the wrap the clip runs from 0 again.");
+    Check(after.wrapCount == 0 && Near(after.start, 0.0) && Near(after.end, 0.1), "After the wrap the clip runs from 0 again.");
+
+    // 재생 중 Play: 섞지 않고 새 클립이 0초부터 시작한다. Stop: 그다음 tick부터 진행이 없고 자세는 그대로다.
+    animator.Play("swing", false);
+    RunTick(world.scene, world.input, world.time);
+    Check(animator.LastTick().started && Near(animator.LastTick().start, 0.0) && animator.ClipName() == "swing" &&
+              !animator.IsLooping(),
+          "Play during playback switches to the new clip from 0.");
+    const DirectX::XMFLOAT4X4 poseBeforeStop = animator.SkinMatrices()[1];
+    animator.Stop();
+    RunTick(world.scene, world.input, world.time);
+    Check(!animator.IsPlaying() && !animator.LastTick().played && Near(animator.PlaybackTime(), 0.1),
+          "Stop keeps the playback time and plays nothing afterwards.");
+    Check(Near(animator.SkinMatrices()[1]._41, poseBeforeStop._41) && Near(animator.SkinMatrices()[1]._43, poseBeforeStop._43),
+          "Stop keeps the pose.");
 }
 
 // 6. 끝: 반복하지 않는 클립은 끝에 닿은 tick에 finished가 한 번 서고, 그 뒤로는 진행하지 않으며 자세가 그대로다.
@@ -289,7 +304,7 @@ void TestFinish(const ModelData& model)
     Check(animator.IsPlaying() && !animator.LastTick().finished, "Three ticks of 0.25 s do not reach the end.");
     RunTick(world.scene, world.input, world.time);
     const TickRecord& last = animator.LastTick();
-    Check(last.played && last.finished && !last.wrapped && Near(last.start, 0.75) && Near(last.end, 1.0),
+    Check(last.played && last.finished && last.wrapCount == 0 && Near(last.start, 0.75) && Near(last.end, 1.0),
           "The fourth tick reaches the end and sets finished.");
     Check(!animator.IsPlaying() && Near(animator.PlaybackTime(), 1.0), "A finished clip stops at its end.");
     const DirectX::XMFLOAT4X4 heldPose = animator.SkinMatrices()[1];
@@ -325,7 +340,7 @@ void TestPauseScaleLongFrame(const ModelData& model)
     ticks = RunFrame(world.scene, world.input, world.time, 0.2);
     Check(ticks == 4 && Near(animator.PlaybackTime(), 0.6), "At scale 2 the same frame advances the clip twice as far.");
 
-    // 정지: tick이 0번이라 재생 시각이 그대로다. tick이 없었으니 마지막 기록도 그 전 tick의 것 그대로다.
+    // 정지: 재생 시각이 그대로다. 마지막 기록도 그 전 것 그대로다.
     world.time.RequestPause(true);
     const TickRecord beforePause = animator.LastTick();
     ticks = RunFrame(world.scene, world.input, world.time, 0.2);
@@ -370,19 +385,60 @@ void TestIndependentPlayback(const ModelData& model)
     Check(world.scene.ObjectCount() == 1 && Near(animatorB.PlaybackTime(), 0.3), "B keeps playing after A is destroyed.");
 }
 
-// 11. 오류: LINEAR가 아닌 보간은 읽지 않는다. 없는 클립 이름은 Play에서 바로 거부한다.
+// 시험 모델의 JSON 글자를 바꾼 사본을 임시 폴더에 만든다. 로더의 다른 경로를 작은 변형으로 시험하기 위해서다.
+std::string ReadTestModelText(const std::string& root)
+{
+    std::ifstream source(std::filesystem::path(root) / TestModelPath);
+    return std::string((std::istreambuf_iterator<char>(source)), std::istreambuf_iterator<char>());
+}
+
+void ReplaceOnce(std::string& text, const char* from, const char* to)
+{
+    const std::string::size_type at = text.find(from);
+    Check(at != std::string::npos, "The test model text must contain the piece the test replaces.");
+    text.replace(at, std::string(from).size(), to);
+}
+
+void WriteText(const std::filesystem::path& path, const std::string& text)
+{
+    std::ofstream file(path);
+    file << text;
+}
+
+// 11. 뼈 순서와 중간 노드: 파일의 관절 순서가 뒤집혀도 부모가 앞에 오게 다시 매기고 정점의 뼈 번호를 고친다.
+// 관절 사이에 관절이 아닌 노드가 끼어 있으면 그 변환을 자식 관절에 합친다.
+void TestJointOrderAndParents(const std::string& root)
+{
+    const TempFolder folder;
+    AssetManager tempAssets(folder.path.string());
+
+    // 관절 순서를 [tip, root]로 뒤집는다. 정점의 번호 0은 이제 파일에서 tip을 뜻한다.
+    std::string reversed = ReadTestModelText(root);
+    ReplaceOnce(reversed, "\"joints\": [\n    0,\n    1\n   ]", "\"joints\": [\n    1,\n    0\n   ]");
+    WriteText(folder.path / "reversed.gltf", reversed);
+    const ModelData& reversedModel = tempAssets.LoadModel("reversed.gltf");
+    Check(reversedModel.bones[0].name == "root" && reversedModel.bones[1].name == "tip" && reversedModel.bones[1].parent == 0,
+          "Reversed joints must still be stored parent first.");
+    const MeshVertex& bodyVertex = FindVertex(reversedModel.mesh, -0.1f, -0.1f, 0.0f);
+    Check(bodyVertex.joints[0] == 1, "A vertex that pointed at file joint 0 (now the tip) must point at engine bone 1.");
+
+    // root와 tip 사이에 관절이 아닌 노드 mid(z로 0.5 이동)를 끼운다. tip의 부모 기준 이동은 1 + 0.5가 돼야 한다.
+    std::string middle = ReadTestModelText(root);
+    ReplaceOnce(middle, "\"children\": [\n    1\n   ]", "\"children\": [\n    4\n   ]");
+    ReplaceOnce(middle, "  }\n ],\n \"meshes\"", "  },\n  {\"name\": \"mid\", \"translation\": [0, 0, 0.5], \"children\": [1]}\n ],\n \"meshes\"");
+    WriteText(folder.path / "middle.gltf", middle);
+    const ModelData& middleModel = tempAssets.LoadModel("middle.gltf");
+    Check(middleModel.bones.size() == 2 && middleModel.bones[1].parent == 0, "A node between two joints does not become a bone.");
+    Check(Near(middleModel.bones[1].translation.z, 1.5f), "The in-between node's translation is folded into the child bone.");
+}
+
+// 12. 오류: LINEAR가 아닌 보간과 같은 시각의 키는 읽지 않는다. 없는 클립 이름은 Play에서 바로 거부한다.
 void TestErrors(const std::string& root, const ModelData& model)
 {
     const TempFolder folder;
-    {
-        std::ifstream source(std::filesystem::path(root) / TestModelPath);
-        std::string text((std::istreambuf_iterator<char>(source)), std::istreambuf_iterator<char>());
-        const std::string::size_type at = text.find("\"LINEAR\"");
-        Check(at != std::string::npos, "The test model must use LINEAR interpolation.");
-        text.replace(at, 8, "\"STEP\"");
-        std::ofstream file(folder.path / "step.gltf");
-        file << text;
-    }
+    std::string step = ReadTestModelText(root);
+    ReplaceOnce(step, "\"LINEAR\"", "\"STEP\"");
+    WriteText(folder.path / "step.gltf", step);
     AssetManager tempAssets(folder.path.string());
     std::string message;
     try { tempAssets.LoadModel("step.gltf"); } catch (const std::runtime_error& error) { message = error.what(); }
@@ -415,8 +471,9 @@ int RunAnimationTests(const std::string& rootFolder)
         TestFinish(model);
         TestPauseScaleLongFrame(model);
         TestIndependentPlayback(model);
+        TestJointOrderAndParents(rootFolder);
         TestErrors(rootFolder, model);
-        std::cout << "Animation tests PASS (9 cases)\n";
+        std::cout << "Animation tests PASS (10 cases)\n";
         return 0;
     }
     catch (const std::exception& error)

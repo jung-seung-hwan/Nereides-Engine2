@@ -79,6 +79,26 @@ const cgltf_accessor* FindAttribute(const cgltf_primitive& primitive, cgltf_attr
     return nullptr;
 }
 
+// 스킨의 관절 가운데 node가 몇 번째인지. 관절이 아니면 -1.
+int JointIndexOf(const cgltf_skin& skin, const cgltf_node* node)
+{
+    for (cgltf_size j = 0; j < skin.joints_count; ++j)
+    {
+        if (skin.joints[j] == node)
+            return static_cast<int>(j);
+    }
+    return -1;
+}
+
+// 노드 하나의 부모 기준 행렬. 이동·회전·크기로 적혔든 행렬로 적혔든 cgltf가 행렬 하나로 준다.
+DirectX::XMMATRIX LocalMatrix(const cgltf_node& node)
+{
+    cgltf_float local[16];
+    cgltf_node_transform_local(&node, local);
+    const DirectX::XMFLOAT4X4 stored = StoreGltfMatrix(local);
+    return DirectX::XMLoadFloat4x4(&stored);
+}
+
 // 스킨의 뼈를 읽는다. 뼈 번호는 부모가 자식보다 앞에 오도록 다시 매긴다. 그래야 뼈 행렬을 앞에서 뒤로 한 번만 돌면 된다.
 // jointToBone[i]는 glTF의 i번째 관절이 엔진에서 몇 번 뼈가 됐는지다. 정점의 뼈 번호를 고칠 때 쓴다.
 void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::vector<Bone>& bones,
@@ -88,16 +108,23 @@ void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::v
     if (jointCount > MaxBones)
         throw LoadError(displayPath, "unsupported data (more than " + std::to_string(MaxBones) + " bones)");
 
-    // 1. 관절마다 부모 관절 번호를 찾는다. 부모 노드가 관절이 아니면 뿌리로 본다(그 위의 노드 변환은 무시한다).
+    // 1. 관절마다 부모 관절을 찾고, 그 사이에 낀 관절 아닌 노드들의 변환을 자기 변환에 합친다.
+    //    (root 관절 → 보통 노드 → tip 관절 같은 파일에서 중간 노드의 이동·회전이 빠지지 않게 한다.)
+    //    뿌리 관절 위의 노드들도 같은 방식으로 합쳐진다. 스킨이 달린 메시 노드 자체의 변환은 4-1처럼 무시한다.
     std::vector<int> parentJoint(jointCount, -1);
+    std::vector<DirectX::XMFLOAT4X4> localMatrices(static_cast<std::size_t>(jointCount));
     for (int i = 0; i < jointCount; ++i)
     {
-        const cgltf_node* parent = skin.joints[i]->parent;
-        for (int j = 0; j < jointCount && parent != nullptr; ++j)
+        DirectX::XMMATRIX local = LocalMatrix(*skin.joints[i]);
+        const cgltf_node* ancestor = skin.joints[i]->parent;
+        while (ancestor != nullptr && JointIndexOf(skin, ancestor) < 0)
         {
-            if (skin.joints[j] == parent)
-                parentJoint[i] = j;
+            // 먼저 적용할 것(자기 변환)을 왼쪽에 둔다. 부모 쪽 변환이 오른쪽에 쌓인다.
+            local = local * LocalMatrix(*ancestor);
+            ancestor = ancestor->parent;
         }
+        parentJoint[i] = ancestor != nullptr ? JointIndexOf(skin, ancestor) : -1;
+        DirectX::XMStoreFloat4x4(&localMatrices[static_cast<std::size_t>(i)], local);
     }
 
     // 2. 부모가 먼저 오는 순서를 만든다. 자리가 정해진 부모를 가진(또는 뿌리인) 관절을 차례로 붙인다.
@@ -129,26 +156,15 @@ void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::v
         bone.name = node.name != nullptr ? node.name : "";
         bone.parent = parentJoint[joint] < 0 ? -1 : jointToBone[parentJoint[joint]];
 
-        if (node.has_matrix)
-        {
-            // 행렬로 적힌 노드는 이동·회전·크기로 나눈다. 변환은 나눈 값에 한다.
-            const DirectX::XMFLOAT4X4 stored = StoreGltfMatrix(node.matrix);
-            DirectX::XMVECTOR scale, rotation, translation;
-            if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, DirectX::XMLoadFloat4x4(&stored)))
-                throw LoadError(displayPath, "unsupported data (a bone matrix cannot be split into scale, rotation and translation)");
-            DirectX::XMStoreFloat3(&bone.scale, scale);
-            DirectX::XMStoreFloat4(&bone.rotation, rotation);
-            DirectX::XMStoreFloat3(&bone.translation, translation);
-        }
-        else
-        {
-            if (node.has_translation)
-                bone.translation = {node.translation[0], node.translation[1], node.translation[2]};
-            if (node.has_rotation)
-                bone.rotation = {node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]};
-            if (node.has_scale)
-                bone.scale = {node.scale[0], node.scale[1], node.scale[2]};
-        }
+        // 부모 관절 기준 행렬을 이동·회전·크기로 나눈다. 기본 자세는 이 셋으로 두고, 클립의 채널이 그중 일부를 바꾼다.
+        // 기울임(shear)이 있는 행렬은 나눌 수 없다. 그런 파일은 받지 않는다.
+        DirectX::XMVECTOR scale, rotation, translation;
+        if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation,
+                                        DirectX::XMLoadFloat4x4(&localMatrices[static_cast<std::size_t>(joint)])))
+            throw LoadError(displayPath, "unsupported data (a bone transform cannot be split into scale, rotation and translation)");
+        DirectX::XMStoreFloat3(&bone.scale, scale);
+        DirectX::XMStoreFloat4(&bone.rotation, rotation);
+        DirectX::XMStoreFloat3(&bone.translation, translation);
         MirrorTranslation(bone.translation);
         MirrorRotation(bone.rotation);
 
@@ -227,8 +243,9 @@ void ReadClips(const cgltf_data& data, const cgltf_skin* skin, const std::vector
                 if (!cgltf_accessor_read_float(&input, k, &time, 1) ||
                     !cgltf_accessor_read_float(&output, k, value, static_cast<cgltf_size>(components)))
                     throw LoadError(displayPath, "unsupported data (cannot read an animation key)");
-                if (!channel.times.empty() && time < channel.times.back())
-                    throw LoadError(displayPath, "unsupported data (animation key times must increase)");
+                // 규격대로 키 시각은 앞 키보다 커야 한다. 같은 시각이 두 번 오면 그 사이의 보간 폭이 0이 된다.
+                if (!channel.times.empty() && time <= channel.times.back())
+                    throw LoadError(displayPath, "unsupported data (animation key times must strictly increase)");
 
                 DirectX::XMFLOAT4 stored = {value[0], value[1], value[2], value[3]};
                 if (channel.target == ChannelTarget::Rotation)

@@ -18,12 +18,14 @@ VertexOutput main(VertexInput input)
     float4 localNormal = float4(input.normal, 0.0f);
 
     // 스키닝: 뼈 4개의 행렬을 가중치만큼 섞어 하나의 행렬로 만들고, 정점을 기본 자세에서 지금 자세로 옮긴다.
-    // 가중치가 모두 0인 정점(바닥, 상자, 뼈 없는 메시)은 그대로 둔다.
+    // 가중치 합으로 나눠서 합이 정확히 1이 아닌 파일(도구의 반올림)에서도 정점이 줄거나 늘지 않게 한다.
+    // 가중치가 모두 0인 정점은 그대로 둔다.
     const float weightSum = input.weights.x + input.weights.y + input.weights.z + input.weights.w;
     if (weightSum > 0.0f)
     {
-        const float4x4 skin = input.weights.x * bones[input.joints.x] + input.weights.y * bones[input.joints.y] +
-                              input.weights.z * bones[input.joints.z] + input.weights.w * bones[input.joints.w];
+        const float4x4 skin = (input.weights.x * bones[input.joints.x] + input.weights.y * bones[input.joints.y] +
+                               input.weights.z * bones[input.joints.z] + input.weights.w * bones[input.joints.w]) /
+                              weightSum;
         localPosition = mul(localPosition, skin);
         localNormal = mul(localNormal, skin);
     }
