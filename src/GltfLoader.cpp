@@ -38,7 +38,37 @@ const char* ResultName(cgltf_result result)
     }
 }
 
-// 접근자(accessor)는 파일 안의 숫자 배열 하나를 가리킨다. 이름이 attributeName인 정점 속성의 접근자를 찾는다.
+// glTF의 16개 숫자(열 우선)를 DirectXMath 행렬로 옮긴다.
+// 이동 값은 13~15번째인데, 행 벡터 관례의 XMFLOAT4X4에서도 _41~_43이 같은 자리라 전치하지 않고 차례로 넣는다.
+DirectX::XMFLOAT4X4 StoreGltfMatrix(const cgltf_float values[16])
+{
+    DirectX::XMFLOAT4X4 stored;
+    for (int i = 0; i < 16; ++i)
+        (&stored._11)[i] = values[i];
+    return stored;
+}
+
+// 좌표계 변환(오른손 → 왼손, X 뒤집기)을 뼈 쪽 값에 맞춘다. 정점은 X를 뒤집으므로, 뼈의 움직임도 같은 거울에 비친 모양이어야 한다.
+// 이동: x의 부호를 바꾼다. 회전 사원수: y와 z의 부호를 바꾼다(거울에 비친 회전은 축의 x만 남기고 방향이 반대다).
+// 행렬: S·M·S (S는 X를 뒤집는 행렬). 첫 행과 첫 열에서 대각선이 아닌 원소의 부호가 바뀐다.
+void MirrorTranslation(DirectX::XMFLOAT3& translation)
+{
+    translation.x = -translation.x;
+}
+
+void MirrorRotation(DirectX::XMFLOAT4& rotation)
+{
+    rotation.y = -rotation.y;
+    rotation.z = -rotation.z;
+}
+
+void MirrorMatrix(DirectX::XMFLOAT4X4& m)
+{
+    m._12 = -m._12; m._13 = -m._13; m._14 = -m._14;
+    m._21 = -m._21; m._31 = -m._31; m._41 = -m._41;
+}
+
+// 접근자(accessor)는 파일 안의 숫자 배열 하나를 가리킨다. 종류가 type이고 첫 번째(index 0)인 정점 속성의 접근자를 찾는다.
 const cgltf_accessor* FindAttribute(const cgltf_primitive& primitive, cgltf_attribute_type type)
 {
     for (cgltf_size i = 0; i < primitive.attributes_count; ++i)
@@ -49,21 +79,184 @@ const cgltf_accessor* FindAttribute(const cgltf_primitive& primitive, cgltf_attr
     return nullptr;
 }
 
+// 스킨의 뼈를 읽는다. 뼈 번호는 부모가 자식보다 앞에 오도록 다시 매긴다. 그래야 뼈 행렬을 앞에서 뒤로 한 번만 돌면 된다.
+// jointToBone[i]는 glTF의 i번째 관절이 엔진에서 몇 번 뼈가 됐는지다. 정점의 뼈 번호를 고칠 때 쓴다.
+void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::vector<Bone>& bones,
+                  std::vector<int>& jointToBone)
+{
+    const int jointCount = static_cast<int>(skin.joints_count);
+    if (jointCount > MaxBones)
+        throw LoadError(displayPath, "unsupported data (more than " + std::to_string(MaxBones) + " bones)");
+
+    // 1. 관절마다 부모 관절 번호를 찾는다. 부모 노드가 관절이 아니면 뿌리로 본다(그 위의 노드 변환은 무시한다).
+    std::vector<int> parentJoint(jointCount, -1);
+    for (int i = 0; i < jointCount; ++i)
+    {
+        const cgltf_node* parent = skin.joints[i]->parent;
+        for (int j = 0; j < jointCount && parent != nullptr; ++j)
+        {
+            if (skin.joints[j] == parent)
+                parentJoint[i] = j;
+        }
+    }
+
+    // 2. 부모가 먼저 오는 순서를 만든다. 자리가 정해진 부모를 가진(또는 뿌리인) 관절을 차례로 붙인다.
+    jointToBone.assign(jointCount, -1);
+    std::vector<int> order;
+    while (static_cast<int>(order.size()) < jointCount)
+    {
+        const std::size_t before = order.size();
+        for (int i = 0; i < jointCount; ++i)
+        {
+            if (jointToBone[i] >= 0)
+                continue;
+            if (parentJoint[i] < 0 || jointToBone[parentJoint[i]] >= 0)
+            {
+                jointToBone[i] = static_cast<int>(order.size());
+                order.push_back(i);
+            }
+        }
+        if (order.size() == before)
+            throw LoadError(displayPath, "unsupported data (the bone hierarchy has a cycle)");
+    }
+
+    // 3. 새 순서대로 뼈를 채운다.
+    bones.clear();
+    for (int joint : order)
+    {
+        const cgltf_node& node = *skin.joints[joint];
+        Bone bone;
+        bone.name = node.name != nullptr ? node.name : "";
+        bone.parent = parentJoint[joint] < 0 ? -1 : jointToBone[parentJoint[joint]];
+
+        if (node.has_matrix)
+        {
+            // 행렬로 적힌 노드는 이동·회전·크기로 나눈다. 변환은 나눈 값에 한다.
+            const DirectX::XMFLOAT4X4 stored = StoreGltfMatrix(node.matrix);
+            DirectX::XMVECTOR scale, rotation, translation;
+            if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, DirectX::XMLoadFloat4x4(&stored)))
+                throw LoadError(displayPath, "unsupported data (a bone matrix cannot be split into scale, rotation and translation)");
+            DirectX::XMStoreFloat3(&bone.scale, scale);
+            DirectX::XMStoreFloat4(&bone.rotation, rotation);
+            DirectX::XMStoreFloat3(&bone.translation, translation);
+        }
+        else
+        {
+            if (node.has_translation)
+                bone.translation = {node.translation[0], node.translation[1], node.translation[2]};
+            if (node.has_rotation)
+                bone.rotation = {node.rotation[0], node.rotation[1], node.rotation[2], node.rotation[3]};
+            if (node.has_scale)
+                bone.scale = {node.scale[0], node.scale[1], node.scale[2]};
+        }
+        MirrorTranslation(bone.translation);
+        MirrorRotation(bone.rotation);
+
+        // 역바인드 행렬. 파일에 없으면 규격대로 단위 행렬이다.
+        DirectX::XMStoreFloat4x4(&bone.inverseBind, DirectX::XMMatrixIdentity());
+        if (skin.inverse_bind_matrices != nullptr)
+        {
+            cgltf_float values[16] = {};
+            if (!cgltf_accessor_read_float(skin.inverse_bind_matrices, static_cast<cgltf_size>(joint), values, 16))
+                throw LoadError(displayPath, "unsupported data (cannot read an inverse bind matrix)");
+            bone.inverseBind = StoreGltfMatrix(values);
+            MirrorMatrix(bone.inverseBind);
+        }
+        bones.push_back(bone);
+    }
+}
+
+// 노드가 스킨의 관절이면 엔진의 뼈 번호를, 아니면 -1을 돌려준다.
+int BoneOfNode(const cgltf_skin* skin, const std::vector<int>& jointToBone, const cgltf_node* node)
+{
+    if (skin == nullptr || node == nullptr)
+        return -1;
+    for (cgltf_size i = 0; i < skin->joints_count; ++i)
+    {
+        if (skin->joints[i] == node)
+            return jointToBone[i];
+    }
+    return -1;
+}
+
+// 애니메이션 클립들을 읽는다. 채널은 뼈 하나의 이동/회전/크기를 시각마다 정한다. 뼈가 아닌 노드를 움직이는 채널은 무시한다.
+void ReadClips(const cgltf_data& data, const cgltf_skin* skin, const std::vector<int>& jointToBone,
+               const std::string& displayPath, std::vector<AnimationClip>& clips)
+{
+    for (cgltf_size a = 0; a < data.animations_count; ++a)
+    {
+        const cgltf_animation& animation = data.animations[a];
+        AnimationClip clip;
+        clip.name = animation.name != nullptr ? animation.name : "";
+
+        for (cgltf_size c = 0; c < animation.channels_count; ++c)
+        {
+            const cgltf_animation_channel& source = animation.channels[c];
+            if (source.sampler == nullptr || source.sampler->input == nullptr || source.sampler->output == nullptr)
+                throw LoadError(displayPath, "unsupported data (an animation channel has no sampler)");
+            if (source.sampler->interpolation != cgltf_interpolation_type_linear)
+                throw LoadError(displayPath, "unsupported data (only LINEAR animation interpolation is supported)");
+
+            AnimationChannel channel;
+            int components = 3;
+            if (source.target_path == cgltf_animation_path_type_translation)
+                channel.target = ChannelTarget::Translation;
+            else if (source.target_path == cgltf_animation_path_type_rotation)
+            {
+                channel.target = ChannelTarget::Rotation;
+                components = 4;
+            }
+            else if (source.target_path == cgltf_animation_path_type_scale)
+                channel.target = ChannelTarget::Scale;
+            else
+                throw LoadError(displayPath, "unsupported data (only translation, rotation and scale channels are supported)");
+
+            channel.bone = BoneOfNode(skin, jointToBone, source.target_node);
+            if (channel.bone < 0)
+                continue; // 뼈가 아닌 노드의 채널. 메시 노드를 통째로 움직이는 클립은 이 단계에서 받지 않는다.
+
+            const cgltf_accessor& input = *source.sampler->input;
+            const cgltf_accessor& output = *source.sampler->output;
+            if (input.count == 0 || output.count != input.count)
+                throw LoadError(displayPath, "unsupported data (animation keys and values must have the same count)");
+
+            for (cgltf_size k = 0; k < input.count; ++k)
+            {
+                cgltf_float time = 0.0f;
+                cgltf_float value[4] = {};
+                if (!cgltf_accessor_read_float(&input, k, &time, 1) ||
+                    !cgltf_accessor_read_float(&output, k, value, static_cast<cgltf_size>(components)))
+                    throw LoadError(displayPath, "unsupported data (cannot read an animation key)");
+                if (!channel.times.empty() && time < channel.times.back())
+                    throw LoadError(displayPath, "unsupported data (animation key times must increase)");
+
+                DirectX::XMFLOAT4 stored = {value[0], value[1], value[2], value[3]};
+                if (channel.target == ChannelTarget::Rotation)
+                    MirrorRotation(stored);
+                else if (channel.target == ChannelTarget::Translation)
+                    stored.x = -stored.x;
+                channel.times.push_back(time);
+                channel.values.push_back(stored);
+            }
+            if (channel.times.back() > clip.duration)
+                clip.duration = channel.times.back();
+            clip.channels.push_back(channel);
+        }
+        clips.push_back(clip);
+    }
+}
+
 // 노드 하나의 메시를 읽어 out에 더한다. 노드의 월드 변환을 정점에 적용한다.
-// 스킨이 달린 노드는 규격대로 노드 변환을 무시한다(정점이 이미 뼈 기준 공간에 있다).
-void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, MeshData& out)
+// 스킨이 달린 노드는 규격대로 노드 변환을 무시하고(정점이 이미 뼈 기준 공간에 있다), 정점의 뼈 번호·가중치를 읽는다.
+void AppendNodeMesh(const cgltf_node& node, const std::vector<int>& jointToBone, const std::string& displayPath,
+                    MeshData& out)
 {
     DirectX::XMMATRIX nodeToWorld = DirectX::XMMatrixIdentity();
     if (node.skin == nullptr)
     {
-        // glTF 행렬은 열 우선(column-major)으로 16개가 늘어서 있고, 이동 값은 13~15번째다.
-        // DirectXMath의 행 벡터 관례에서는 이동 값이 넷째 행(_41~_43)에 있는데, 16개를 차례로 넣으면 바로 그 자리에 들어간다.
-        // 그래서 전치하지 않고 그대로 쓴다. 메모리에 놓인 순서가 같기 때문이다.
         cgltf_float world[16];
         cgltf_node_transform_world(&node, world);
-        DirectX::XMFLOAT4X4 stored;
-        for (int i = 0; i < 16; ++i)
-            (&stored._11)[i] = world[i];
+        const DirectX::XMFLOAT4X4 stored = StoreGltfMatrix(world);
         nodeToWorld = DirectX::XMLoadFloat4x4(&stored);
     }
     // 행렬식이 0이면(크기에 0이 있으면) 역행렬이 없고 메시가 납작해진다. 그런 노드는 받지 않는다.
@@ -94,6 +287,20 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
         if (primitive.indices->count % 3 != 0)
             throw LoadError(displayPath, "unsupported data (index count is not a multiple of 3)");
 
+        // 스킨 노드의 정점은 뼈 번호(JOINTS_0)와 가중치(WEIGHTS_0)가 있어야 한다.
+        const cgltf_accessor* jointsAccessor = nullptr;
+        const cgltf_accessor* weightsAccessor = nullptr;
+        if (node.skin != nullptr)
+        {
+            jointsAccessor = FindAttribute(primitive, cgltf_attribute_type_joints);
+            weightsAccessor = FindAttribute(primitive, cgltf_attribute_type_weights);
+            if (jointsAccessor == nullptr || weightsAccessor == nullptr || jointsAccessor->count != positions->count ||
+                weightsAccessor->count != positions->count)
+                throw LoadError(displayPath, "unsupported data (a skinned primitive needs JOINTS_0 and WEIGHTS_0 for every vertex)");
+            if (jointsAccessor->type != cgltf_type_vec4 || weightsAccessor->type != cgltf_type_vec4)
+                throw LoadError(displayPath, "unsupported data (JOINTS_0 and WEIGHTS_0 must be VEC4)");
+        }
+
         // 이 묶음의 정점은 합친 배열의 base번째부터 들어간다. 인덱스에도 base를 더한다.
         const std::uint32_t base = static_cast<std::uint32_t>(out.vertices.size());
         for (cgltf_size i = 0; i < positions->count; ++i)
@@ -114,6 +321,23 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
             // 오른손 → 왼손: X를 뒤집는다. 법선도 같은 방향으로 뒤집는다.
             vertex.position.x = -vertex.position.x;
             vertex.normal.x = -vertex.normal.x;
+
+            if (jointsAccessor != nullptr)
+            {
+                // 뼈 번호는 파일의 관절 번호다. 부모 먼저 순서로 다시 매긴 엔진의 뼈 번호로 바꾼다.
+                cgltf_uint joints[4] = {};
+                cgltf_float weights[4] = {};
+                if (!cgltf_accessor_read_uint(jointsAccessor, i, joints, 4) ||
+                    !cgltf_accessor_read_float(weightsAccessor, i, weights, 4))
+                    throw LoadError(displayPath, "unsupported data (cannot read a vertex's bones)");
+                for (int j = 0; j < 4; ++j)
+                {
+                    if (joints[j] >= jointToBone.size())
+                        throw LoadError(displayPath, "unsupported data (a vertex points to a bone that does not exist)");
+                    vertex.joints[j] = static_cast<std::uint8_t>(jointToBone[joints[j]]);
+                    vertex.weights[j] = weights[j];
+                }
+            }
             out.vertices.push_back(vertex);
         }
 
@@ -142,13 +366,24 @@ void AppendNodeMesh(const cgltf_node& node, const std::string& displayPath, Mesh
 }
 
 // 노드와 그 자식들을 차례로 읽는다. 자식 안에 또 자식이 있을 수 있어서 자기 자신을 다시 부른다(재귀).
-void AppendNodeTree(const cgltf_node& node, const std::string& displayPath, MeshData& out)
+void AppendNodeTree(const cgltf_node& node, const std::vector<int>& jointToBone, const std::string& displayPath,
+                    MeshData& out)
 {
     if (node.mesh != nullptr)
-        AppendNodeMesh(node, displayPath, out);
+        AppendNodeMesh(node, jointToBone, displayPath, out);
     for (cgltf_size i = 0; i < node.children_count; ++i)
-        AppendNodeTree(*node.children[i], displayPath, out);
+        AppendNodeTree(*node.children[i], jointToBone, displayPath, out);
 }
+}
+
+int ModelData::FindClip(const std::string& name) const
+{
+    for (std::size_t i = 0; i < clips.size(); ++i)
+    {
+        if (clips[i].name == name)
+            return static_cast<int>(i);
+    }
+    return -1;
 }
 
 ModelData LoadGltf(const std::string& fullPath, const std::string& displayPath)
@@ -178,6 +413,13 @@ ModelData LoadGltf(const std::string& fullPath, const std::string& displayPath)
 
         ModelData model;
         model.path = displayPath;
+
+        // 뼈를 메시보다 먼저 읽는다. 정점의 뼈 번호를 새 순서로 바꾸려면 jointToBone이 필요하다.
+        const cgltf_skin* skin = data->skins_count == 1 ? &data->skins[0] : nullptr;
+        std::vector<int> jointToBone;
+        if (skin != nullptr)
+            ReadSkeleton(*skin, displayPath, model.bones, jointToBone);
+
         // 파일이 가리키는 장면(없으면 첫 장면)의 뿌리 노드부터 자식을 따라가며 메시가 달린 노드만 읽는다.
         // 장면에 들어 있지 않은 노드는 그리지 않는다. 장면이 하나도 없으면 모든 노드를 읽는다.
         const cgltf_scene* scene = data->scene;
@@ -186,26 +428,20 @@ ModelData LoadGltf(const std::string& fullPath, const std::string& displayPath)
         if (scene != nullptr)
         {
             for (cgltf_size i = 0; i < scene->nodes_count; ++i)
-                AppendNodeTree(*scene->nodes[i], displayPath, model.mesh);
+                AppendNodeTree(*scene->nodes[i], jointToBone, displayPath, model.mesh);
         }
         else
         {
             for (cgltf_size i = 0; i < data->nodes_count; ++i)
             {
                 if (data->nodes[i].mesh != nullptr)
-                    AppendNodeMesh(data->nodes[i], displayPath, model.mesh);
+                    AppendNodeMesh(data->nodes[i], jointToBone, displayPath, model.mesh);
             }
         }
         if (model.mesh.vertices.empty() || model.mesh.indices.empty())
             throw LoadError(displayPath, "unsupported data (no triangle mesh in the file)");
 
-        if (data->skins_count == 1)
-            model.boneCount = data->skins[0].joints_count;
-        for (cgltf_size i = 0; i < data->animations_count; ++i)
-        {
-            const char* name = data->animations[i].name;
-            model.clipNames.push_back(name != nullptr ? name : "");
-        }
+        ReadClips(*data, skin, jointToBone, displayPath, model.clips);
 
         cgltf_free(data);
         return model;

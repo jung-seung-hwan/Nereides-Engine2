@@ -39,6 +39,9 @@ public:
     // tick 안(BeginTick 뒤)이면 반영은 EndTick이 한다. tick 밖에서 바로 부르면(시험 코드) 끝날 때 바로 반영한다.
     // 갱신이 예외를 던져도 같은 규칙이다. tick 안의 요청은 EndTick까지 기다리고, tick 밖의 요청은 그 자리에서 반영한다.
     void FixedUpdate();
+    // tick마다 FixedUpdate 뒤에 부른다. 모든 객체의 AdvanceAnimation을 부른다(애니메이션 단계).
+    // 생성·삭제 반영은 FixedUpdate와 같은 규칙이다. tick 안이면 EndTick이 한다.
+    void AdvanceAnimation();
     // 프레임마다 한 번, 모든 tick이 끝난 뒤 부른다. 모든 객체의 Update를 부르고, 끝나면 생성·삭제 예약을 반영한다.
     // Update에서는 생성·삭제·Clear를 하지 않기로 했다. 끝의 반영은 그 규칙을 어겼을 때 목록이 꼬이지 않게 하는 안전장치다.
     void Update();
@@ -53,7 +56,7 @@ public:
 
     // 창구 규칙: 컴포넌트에 알려 주는 서비스는 Input과 Time 두 개뿐이다.
     // 그 밖에 컴포넌트가 쓰는 것은 CreateObject와 Clear뿐이다.
-    // BeginTick, EndTick, FixedUpdate, Update, SavePreviousTransforms는 Application만, ObjectAt은 수집 함수만 부른다.
+    // BeginTick, EndTick, FixedUpdate, AdvanceAnimation, Update, SavePreviousTransforms는 Application만, ObjectAt은 수집 함수만 부른다.
     // 컴포넌트 소멸자에서는 CreateObject·Clear·FixedUpdate·Update를 부르지 않는다.
     // 소멸자는 이 Scene이 객체 목록을 지우는 도중에 실행되므로, 그때 목록을 바꾸면 정리가 꼬인다.
     // 소멸자에서 GetInput·GetTime으로 읽는 것은 괜찮다.
@@ -61,8 +64,8 @@ public:
     const Time& GetTime() const { return m_time; }
 
 private:
-    // FixedUpdate와 Update가 함께 쓰는 순회. fixedStep이 true면 FixedUpdate를, false면 Update를 부른다.
-    void RunObjects(bool fixedStep);
+    // FixedUpdate, AdvanceAnimation, Update가 함께 쓰는 순회. step이 객체의 어느 함수를 부를지 고른다.
+    void RunObjects(UpdateStep step);
     // 미뤄 둔 생성과 삭제를 반영한다. 대기 목록의 객체를 객체 목록에 넣고, 삭제 요청된 객체를 지운다.
     void ApplyPendingChanges();
 

@@ -8,6 +8,14 @@
 // Scene.h가 이 파일을 포함하므로, 여기서는 Scene이라는 이름만 알린다.
 class Scene;
 
+// 컴포넌트를 차례로 부르는 세 단계. Scene과 GameObject가 같은 순회 함수를 쓰면서 어느 가상 함수를 부를지 고른다.
+enum class UpdateStep
+{
+    FixedUpdate, // tick마다
+    Animation,   // tick마다, FixedUpdate 뒤의 애니메이션 단계
+    Update       // 프레임마다 한 번
+};
+
 class GameObject
 {
 public:
@@ -28,6 +36,8 @@ public:
     void AddComponent(std::unique_ptr<Component> component);
     // 켜진 컴포넌트의 FixedUpdate를 부른다. Scene이 tick마다 부른다.
     void FixedUpdate();
+    // 켜진 컴포넌트의 AdvanceAnimation을 부른다. Scene이 tick마다 FixedUpdate 뒤에 부른다.
+    void AdvanceAnimation();
     // 켜진 컴포넌트의 Update를 부른다. Scene이 프레임마다 한 번 부른다.
     void Update();
 
@@ -49,8 +59,8 @@ public:
     Transform transform;
 
 private:
-    // FixedUpdate와 Update가 함께 쓰는 순회. fixedStep이 true면 FixedUpdate를, false면 Update를 부른다.
-    void RunComponents(bool fixedStep);
+    // FixedUpdate, AdvanceAnimation, Update가 함께 쓰는 순회. step이 어느 가상 함수를 부를지 고른다.
+    void RunComponents(UpdateStep step);
 
     Scene& m_scene;
     std::string m_name;

@@ -43,7 +43,8 @@ struct TempFolder
     }
 };
 
-// 시험 모델: tools/make_test_model.py가 만든 화살표와 받침. 정점 72+24개, 삼각형 36+12개, 뼈 2개, 클립 "bend" 1개.
+// 시험 모델: tools/make_test_model.py가 만든 화살표와 받침. 정점 72+24개, 삼각형 36+12개, 뼈 2개, 클립 "bend"·"swing" 2개.
+// 뼈·클립의 내용은 --animation-tests가 본다. 여기서는 개수만 본다.
 void TestLoadTestModel(const std::string& root)
 {
     AssetManager assets(root);
@@ -51,8 +52,9 @@ void TestLoadTestModel(const std::string& root)
     Check(model.path == TestModelPath, "The model must remember the requested path.");
     Check(model.mesh.vertices.size() == 96, "The arrow and its base must have 96 vertices.");
     Check(model.mesh.indices.size() == 144, "The arrow and its base must have 144 indices (48 triangles).");
-    Check(model.boneCount == 2, "The arrow must report 2 bones.");
-    Check(model.clipNames.size() == 1 && model.clipNames[0] == "bend", "The arrow must report one clip named bend.");
+    Check(model.bones.size() == 2, "The arrow must report 2 bones.");
+    Check(model.clips.size() == 2 && model.clips[0].name == "bend" && model.clips[1].name == "swing",
+          "The arrow must report the clips bend and swing.");
 }
 
 // 좌표계 변환: glTF의 오른손 좌표계를 엔진의 왼손 좌표계로 바꾼 결과를 본다.

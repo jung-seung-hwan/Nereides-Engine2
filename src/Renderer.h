@@ -58,6 +58,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11InputLayout> m_inputLayout;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_frameConstants; // 프레임마다 바뀌는 값
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_itemConstants;  // 항목마다 바뀌는 값
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_boneConstants;  // 항목마다 바뀌는 뼈 행렬(최대 MaxBones개)
     std::vector<GpuMesh> m_meshes;
     int m_width;
     int m_height;

@@ -43,15 +43,20 @@ void Scene::EndTick()
 
 void Scene::FixedUpdate()
 {
-    RunObjects(true);
+    RunObjects(UpdateStep::FixedUpdate);
+}
+
+void Scene::AdvanceAnimation()
+{
+    RunObjects(UpdateStep::Animation);
 }
 
 void Scene::Update()
 {
-    RunObjects(false);
+    RunObjects(UpdateStep::Update);
 }
 
-void Scene::RunObjects(bool fixedStep)
+void Scene::RunObjects(UpdateStep step)
 {
     // FixedUpdate 도중 Update를 부르는 것처럼, 갱신 도중에는 어느 갱신도 다시 시작할 수 없다.
     if (m_updating)
@@ -64,10 +69,12 @@ void Scene::RunObjects(bool fixedStep)
     {
         for (std::size_t i = 0; i < count; ++i)
         {
-            if (fixedStep)
-                m_objects[i]->FixedUpdate();
-            else
-                m_objects[i]->Update();
+            switch (step)
+            {
+            case UpdateStep::FixedUpdate: m_objects[i]->FixedUpdate(); break;
+            case UpdateStep::Animation: m_objects[i]->AdvanceAnimation(); break;
+            case UpdateStep::Update: m_objects[i]->Update(); break;
+            }
         }
     }
     catch (...)

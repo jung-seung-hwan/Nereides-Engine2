@@ -7,7 +7,10 @@
       모델이 +Z를 보고 서 있을 때 glTF(오른손)에서 -X는 모델의 오른손 쪽이다. 엔진(왼손)은 X를 뒤집어 읽으므로
       날개는 엔진의 +X, 역시 모델의 오른손 쪽에 온다. 뒤집기를 빠뜨리면 날개가 반대쪽에 보인다.
 뼈:   2개. root(원점)와 tip(z=1, 화살촉 쪽). 정점은 z<1이면 root, z>=1이면 tip을 따른다.
-클립: "bend" 1초. tip이 X축을 중심으로 0도 → 90도 → 0도로 꺾인다. 4-2에서 쓴다. 4-1은 개수만 읽는다.
+클립: "bend" 1초. tip이 X축을 중심으로 0도 → 90도 → 0도로 꺾인다. 4-1은 개수만 읽고 4-2가 재생한다.
+      "swing" 1초. tip이 Y축을 중심으로 0도 → 90도 → 0도로 돌고, root가 x로 0 → 0.2 → 0 움직인다(4-2).
+      "swing"은 X 뒤집기에 대칭이 아니라서, 로더가 뼈·클립의 좌표 변환을 빠뜨리면 시험이 잡아낸다.
+      "bend"만으로는 못 잡는다. X축 회전과 Z 이동은 X를 뒤집어도 같기 때문이다.
 받침: 뼈가 없는 둘째 메시. 노드에 이동 (0, -0.3, 0.2)와 크기 (2, 1, 1)가 있어서, 로더가 노드 변환을 정점에 적용하는지 본다.
 glTF 규칙: 오른손 좌표계, 앞면은 반시계(CCW). 엔진이 읽을 때 X를 뒤집고 앞면 순서를 바꾼다.
 """
@@ -57,6 +60,13 @@ def quat_x(deg):
     return (math.sin(h), 0.0, 0.0, math.cos(h))
 rotations = [quat_x(0), quat_x(90), quat_x(0)]
 
+# 둘째 클립 "swing": tip이 Y축으로 0도 → 90도 → 0도, root가 x로 0 → 0.2 → 0.
+def quat_y(deg):
+    h = math.radians(deg) / 2
+    return (0.0, math.sin(h), 0.0, math.cos(h))
+swing_rotations = [quat_y(0), quat_y(90), quat_y(0)]
+swing_translations = [(0.0, 0.0, 0.0), (0.2, 0.0, 0.0), (0.0, 0.0, 0.0)]
+
 # tip의 역바인드 행렬: tip은 z=1에 있으므로 (0,0,-1)만큼 옮기는 행렬. root는 단위 행렬. glTF는 열 우선이다.
 def translation_matrix(x, y, z):
     return [1,0,0,0, 0,1,0,0, 0,0,1,0, x,y,z,1]
@@ -96,6 +106,8 @@ a_ibm = add(inverse_bind, 'f', 2, FLOAT, "MAT4", 16)
 a_time = add(times, 'f', len(times), FLOAT, "SCALAR", 1)
 accessors[a_time]["min"] = [times[0]]; accessors[a_time]["max"] = [times[-1]]
 a_rot = add(rotations, 'f', len(rotations), FLOAT, "VEC4", 4)
+a_swing_rot = add(swing_rotations, 'f', len(swing_rotations), FLOAT, "VEC4", 4)
+a_swing_tr = add(swing_translations, 'f', len(swing_translations), FLOAT, "VEC3", 3)
 
 gltf = {
     "asset": {"version": "2.0", "generator": "Nereides Engine2 tools/make_test_model.py"},
@@ -118,7 +130,12 @@ gltf = {
     "skins": [{"name": "arrow-skin", "joints": [0, 1], "inverseBindMatrices": a_ibm, "skeleton": 0}],
     "animations": [{"name": "bend",
         "samplers": [{"input": a_time, "output": a_rot, "interpolation": "LINEAR"}],
-        "channels": [{"sampler": 0, "target": {"node": 1, "path": "rotation"}}]}],
+        "channels": [{"sampler": 0, "target": {"node": 1, "path": "rotation"}}]},
+        {"name": "swing",
+        "samplers": [{"input": a_time, "output": a_swing_rot, "interpolation": "LINEAR"},
+                     {"input": a_time, "output": a_swing_tr, "interpolation": "LINEAR"}],
+        "channels": [{"sampler": 0, "target": {"node": 1, "path": "rotation"}},
+                     {"sampler": 1, "target": {"node": 0, "path": "translation"}}]}],
     "buffers": [{"byteLength": len(blob),
                  "uri": "data:application/octet-stream;base64," + base64.b64encode(bytes(blob)).decode()}],
     "bufferViews": views,

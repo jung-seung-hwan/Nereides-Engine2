@@ -8,6 +8,10 @@
     <Filter Include="Assets"><UniqueIdentifier>{B2D3F4A5-6C7E-4F8A-9B0C-1D2E3F4A5B6C}</UniqueIdentifier></Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\AnimationTests.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\AnimationTests.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="src\Animator.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\Animator.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\Application.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClInclude Include="src\Application.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="src\AssetManager.cpp"><Filter>Source Files</Filter></ClCompile>

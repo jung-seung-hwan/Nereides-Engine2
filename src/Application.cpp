@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "Animator.h"
 #include "CameraComponent.h"
 #include "CollectRenderFrame.h"
 #include "LogComponent.h"
@@ -33,6 +34,9 @@ const float PlayerSpeed = 1.0f; // 초당 이동 거리
 
 // 창 모드의 모델. 저장소의 작은 시험 모델이다. 경로는 저장소 루트 기준이다.
 const char* CharacterModelPath = "assets/test/arrow.gltf";
+// Space(공격)에 Player가 한 번 재생하는 클립과, Kraken이 계속 반복하는 클립. 둘 다 시험 모델의 "bend"다.
+const char* AttackClipName = "bend";
+const char* KrakenLoopClipName = "bend";
 
 // 창 모드 장면의 값. 바닥 위에 상자 두 개를 놓고, 카메라가 앞 위에서 내려다본다.
 const DirectX::XMFLOAT4 FloorColor = {0.45f, 0.47f, 0.50f, 1.0f};
@@ -79,7 +83,6 @@ void Application::Run()
 
 void Application::Initialize()
 {
-    int logEveryTicks = 1;
     if (m_mode == RunMode::Demo)
     {
         std::cout << "Nereides Engine2 - Stage 2: input and time demo\n";
@@ -87,49 +90,66 @@ void Application::Initialize()
     }
     else
     {
-        std::cout << "Nereides Engine2 - Stage 4-1: model assets\n";
-        std::cout << "W/A/S/D: move, Space: attack, mouse: turn. Close the window to quit.\n";
+        std::cout << "Nereides Engine2 - Stage 4-2: animation playback\n";
+        std::cout << "W/A/S/D: move, Space: attack (plays a clip once), mouse: turn. Close the window to quit.\n";
         // 창을 먼저 만들어야 Renderer가 그 창에 스왑 체인을 붙일 수 있다.
         // Renderer까지 만든 뒤에 창을 보여 준다.
         m_window = std::make_unique<Window>(m_input, L"Nereides Engine2", WindowWidth, WindowHeight);
         m_renderer = std::make_unique<Renderer>(m_window->GetHandle(), m_window->GetWidth(), m_window->GetHeight());
         m_window->Show();
-        logEveryTicks = WindowLogEveryTicks;
     }
 
     std::cout << "Initialize\n";
-    GameObject& player = m_scene.CreateObject("Player");
-    player.transform.position.x = -2;
-    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed, logEveryTicks));
-    GameObject& kraken = m_scene.CreateObject("Kraken");
-    kraken.transform.position.x = 2;
     if (m_mode == RunMode::Demo)
-    {
-        // 스크립트 데모는 단계 2 그대로다. 단계 3-3에서 더한 Update 줄과 Render 번호 말고는 출력이 같아야 회귀 검사가 된다.
-        kraken.AddComponent(std::make_unique<LogComponent>(kraken));
-        kraken.SetActive(false);
-        return;
-    }
-    BuildWindowScene(player, kraken);
+        BuildDemoScene();
+    else
+        BuildWindowScene();
 }
 
-void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
+void Application::BuildDemoScene()
+{
+    // 스크립트 데모는 단계 2 그대로다. 단계 3-3에서 더한 Update 줄과 Render 번호, 4-2의 애니메이션 줄 문구 말고는
+    // 출력이 같아야 회귀 검사가 된다. Animator는 없다. 그래서 공격은 횟수만 센다.
+    GameObject& player = m_scene.CreateObject("Player");
+    player.transform.position.x = -2;
+    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed, 1));
+    GameObject& kraken = m_scene.CreateObject("Kraken");
+    kraken.transform.position.x = 2;
+    kraken.AddComponent(std::make_unique<LogComponent>(kraken));
+    kraken.SetActive(false);
+}
+
+void Application::BuildWindowScene()
 {
     // 원본을 먼저 준비한다. 모델은 AssetManager가 파일에서 읽어 갖고, 바닥은 코드로 만든다.
-    // ModelRenderer는 이 원본들을 가리키기만 한다. 파일이 없거나 잘못되면 여기서 예외가 나고 main이 알린다.
+    // ModelRenderer와 Animator는 이 원본들을 가리키기만 한다. 파일이 없거나 잘못되면 여기서 예외가 나고 main이 알린다.
     const ModelData& character = m_assets.LoadModel(CharacterModelPath);
     m_floorMesh = MakeFloor();
 
-    // 화살표 모델은 원점에서 +Z로 뻗는다. 바닥(y=0) 위에 조금 띄워 놓는다.
-    player.transform.position.y = 0.3f;
-    player.AddComponent(std::make_unique<ModelRenderer>(player, character.mesh, PlayerColor));
+    // Player: 화살표 모델은 원점에서 +Z로 뻗는다. 바닥(y=0) 위에 조금 띄워 놓는다.
+    // Animator를 먼저 만들고 그 주소를 PlayerControl과 ModelRenderer에 넘긴다(명시적인 연결).
+    // unique_ptr을 GameObject에 옮겨도 가리키는 객체의 주소는 그대로다. 카메라와 같은 방법이다.
+    GameObject& player = m_scene.CreateObject("Player");
+    player.transform.position = {-2.0f, 0.3f, 0.0f};
+    auto playerAnimator = std::make_unique<Animator>(player, character);
+    Animator* playerAnimatorAddress = playerAnimator.get();
+    player.AddComponent(std::move(playerAnimator));
+    player.AddComponent(std::make_unique<PlayerControl>(player, PlayerSpeed, WindowLogEveryTicks, playerAnimatorAddress,
+                                                        AttackClipName));
+    player.AddComponent(std::make_unique<ModelRenderer>(player, character.mesh, PlayerColor, playerAnimatorAddress));
 
     // Kraken도 같은 원본을 쓴다. 원본은 한 번만 읽히고 GPU 버퍼도 한 벌이다. 크기와 색만 다르다.
+    // 재생 상태는 Animator가 객체마다 가지므로 Player와 따로 재생한다. 첫 tick부터 클립을 반복한다.
     // 비활성 객체는 그리지 않으므로 창 모드의 Kraken은 켜 둔다.
     // LogComponent는 달지 않는다. 켜 두면 tick마다, 곧 초당 50줄을 찍기 때문이다.
-    kraken.transform.position.y = 0.6f;
+    GameObject& kraken = m_scene.CreateObject("Kraken");
+    kraken.transform.position = {2.0f, 0.6f, 0.0f};
     kraken.transform.scale = {2.0f, 2.0f, 2.0f};
-    kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, character.mesh, KrakenColor));
+    auto krakenAnimator = std::make_unique<Animator>(kraken, character);
+    krakenAnimator->Play(KrakenLoopClipName, true);
+    Animator* krakenAnimatorAddress = krakenAnimator.get();
+    kraken.AddComponent(std::move(krakenAnimator));
+    kraken.AddComponent(std::make_unique<ModelRenderer>(kraken, character.mesh, KrakenColor, krakenAnimatorAddress));
 
     GameObject& floor = m_scene.CreateObject("Floor");
     floor.transform.scale = {20.0f, 1.0f, 20.0f};
@@ -312,6 +332,7 @@ void Application::RunTick(int tick, int tickCount)
         std::cout << "    3. Objects\n";
     // 게임 상태를 바꾸는 갱신. 컴포넌트는 FixedDeltaTime()과 이번 tick의 입력을 읽는다.
     m_scene.FixedUpdate();
+    // 애니메이션 단계. FixedUpdate에서 요청한 재생이 여기서 적용되고, 뼈 행렬이 이 tick의 값으로 계산된다.
     UpdateAnimation();
     CheckCollision();
     // tick 끝. 미뤄 둔 생성·삭제를 반영한다. 처음 설계의 "예약 생성·삭제 처리" 단계다.
@@ -322,8 +343,10 @@ void Application::RunTick(int tick, int tickCount)
 
 void Application::UpdateAnimation()
 {
+    // 데모 장면에는 Animator가 없어서 아무것도 진행되지 않지만, 단계는 실제로 돈다. 그래서 placeholder라고 적지 않는다.
     if (m_mode == RunMode::Demo)
-        std::cout << "    4. Animation [placeholder]\n";
+        std::cout << "    4. Animation advance each Animator by FixedDeltaTime (none in the demo scene)\n";
+    m_scene.AdvanceAnimation();
 }
 
 void Application::CheckCollision()
