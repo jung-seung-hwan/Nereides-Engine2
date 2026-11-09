@@ -323,7 +323,7 @@ void TestFinish(const ModelData& model)
     Check(animator.LastTick().started && Near(animator.LastTick().start, 0.0), "Play after a finish restarts from 0.");
 }
 
-// 7~9. 정지·배속·긴 프레임: Animator는 정지·배속을 모른다. tick 수가 달라져서 진행량이 달라진다.
+// 7~9. 정지·배속·긴 프레임: Animator는 정지·배속을 모른다(학생 질문 2).
 void TestPauseScaleLongFrame(const ModelData& model)
 {
     TestWorld world(0.1);
@@ -331,11 +331,11 @@ void TestPauseScaleLongFrame(const ModelData& model)
     Animator& animator = AddAnimator(object, model);
     animator.Play("bend", true);
 
-    // 배속 1: 실제 0.2초 → tick 2번 → 0.2초 진행.
+    // 배속 1: 실제 0.2초 → 0.2초 진행.
     int ticks = RunFrame(world.scene, world.input, world.time, 0.2);
     Check(ticks == 2 && Near(animator.PlaybackTime(), 0.2), "At scale 1 a 0.2 s frame advances the clip by 0.2 s.");
 
-    // 배속 2: 같은 실제 0.2초 → tick 4번 → 0.4초 진행.
+    // 배속 2: 같은 실제 0.2초 → 0.4초 진행.
     world.time.RequestScale(2.0);
     ticks = RunFrame(world.scene, world.input, world.time, 0.2);
     Check(ticks == 4 && Near(animator.PlaybackTime(), 0.6), "At scale 2 the same frame advances the clip twice as far.");

@@ -239,11 +239,11 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 
 ## 학생 질문
 
-1. Space를 누른 tick에서 Player의 재생이 시작되기까지 거치는 함수를 Application → Scene → GameObject → 컴포넌트 순서로 적어라. 재생이 다음 tick이 아니라 같은 tick에 시작되는 것은 코드의 어느 호출 순서가 정하는가?
+1. Space를 누른 tick에서 Player의 재생이 시작되기까지 거치는 함수를 Application → Scene → GameObject → 컴포넌트 순서로 적어라. 그리고 `RunTick`에서 `UpdateAnimation`을 `Scene.FixedUpdate` 앞으로 옮기면, Space를 누른 tick과 그다음 tick의 기록(`started`, `start`, `end`)은 어떻게 바뀌는가?
 2. 창을 최소화하면 Kraken의 재생이 멈춘다. Animator 코드에는 정지를 검사하는 줄이 없다. 어디서 멈추는가?
-3. 받침(뼈 없는 정점)은 어떤 클립에서도 움직이지 않는다. 정점 형식, 로더, 셰이더에서 그 이유를 찾아 설명하라.
+3. 정점 셰이더에서 "가중치가 모두 0인 정점은 그대로 둔다" 처리를 빼면 받침(뼈 없는 정점)은 화면에서 어떻게 될까? 셰이더가 뼈 행렬을 섞는 계산으로 설명하라.
 
-변형 과제: Player의 공격 클립을 "swing"으로 바꾸고, 재생이 끝난 뒤 화살표가 어느 자세에 멈추는지와 그다음 Space에서 어떻게 시작하는지 관찰해 이유를 설명한다.
+변형 과제: Player의 공격 클립을 "swing"으로 바꾼다. 실행하기 전에 재생이 끝난 뒤 화살표가 어느 자세에 멈출지, 그다음 Space에서 어떻게 시작할지, "swing" 한 번이 창 모드에서 몇 tick인지 예상을 먼저 적는다. 실행해서 확인한 뒤(tick 수는 `TickRecord`로 센다), 그렇게 되는 이유를 코드 줄로 댄다.
 정답 변경은 기본 예제에 포함하지 않는다. 학생 이해 상태는 미확인이다.
 
 ## 리뷰 기록

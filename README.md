@@ -6,7 +6,7 @@ C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 �
 ## 현재 학습: 단계 4-2
 
 4-1에서 읽은 모델의 클립을 객체마다 따로 재생하고, 뼈 자세로 정점을 움직여(스키닝) 그린다. 재생 상태의 주인은 새로 만든 Animator 컴포넌트다. 클립·뼈 원본은 4-1처럼 AssetManager가 갖고 Animator는 가리키기만 한다.
-Animator는 tick 안, Scene.FixedUpdate 뒤의 애니메이션 단계(`Scene.AdvanceAnimation`, Component의 새 가상 함수)에서 `FixedDeltaTime()`만큼 진행한다. 그래서 단계 5의 판정과 같은 시계를 쓰고, 정지·배속·긴 프레임이 그대로 반영된다. tick마다 "어디서 어디까지 재생했나"를 남긴다.
+Animator는 tick 안, Scene.FixedUpdate 뒤의 애니메이션 단계(`Scene.AdvanceAnimation`, Component의 새 가상 함수)에서 `FixedDeltaTime()`만큼 진행한다. 그래서 단계 5의 판정과 같은 시계를 쓴다. tick마다 "어디서 어디까지 재생했나"를 남긴다.
 로더는 뼈·클립·정점의 뼈 번호까지 읽고 정점과 같은 거울(X 뒤집기)로 바꾼다. 시험 모델에 둘째 클립 "swing"을 더해 변환을 빠뜨리면 시험이 잡히게 했다.
 창 모드에서 Space를 누르면 Player가 클립을 한 번 재생하고, Kraken은 계속 반복한다. 포즈 보간은 하지 않는다(tick이 없는 프레임은 자세가 전 tick과 같다). SceneManager는 학생 결정으로 단계 6 뒤로 미뤘다(이슈 19).
 
