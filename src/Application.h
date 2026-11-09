@@ -28,7 +28,10 @@ public:
 
 private:
     void Initialize();
-    void BuildWindowScene(GameObject& player, GameObject& kraken);
+    // 스크립트 데모 장면: 단계 2 그대로 Player와 꺼진 Kraken. 모델을 읽지 않는다.
+    void BuildDemoScene();
+    // 창 모드 장면: 모델을 읽고 Player·Kraken(Animator 포함)·바닥·카메라를 만든다.
+    void BuildWindowScene();
     void RunWindow();
     void RunDemo();
     void ReadDemoInput(int frame);
@@ -38,6 +41,7 @@ private:
     void AdvanceGame(double unscaledDeltaTime);
     void PrintDemoTime(double unscaledDeltaTime, int tickCount);
     void RunTick(int tick, int tickCount);
+    // tick 안의 애니메이션 단계. 모든 객체의 Animator를 tick 하나만큼 진행한다(Scene.AdvanceAnimation).
     void UpdateAnimation();
     void CheckCollision();
     void PrintDemoRender();

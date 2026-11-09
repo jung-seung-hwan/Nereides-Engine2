@@ -47,6 +47,10 @@
     <ClCompile><Optimization>MaxSpeed</Optimization><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\AnimationTests.cpp" />
+    <ClInclude Include="src\AnimationTests.h" />
+    <ClCompile Include="src\Animator.cpp" />
+    <ClInclude Include="src\Animator.h" />
     <ClCompile Include="src\Application.cpp" />
     <ClInclude Include="src\Application.h" />
     <ClCompile Include="src\AssetManager.cpp" />

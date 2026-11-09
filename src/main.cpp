@@ -1,3 +1,4 @@
+#include "AnimationTests.h"
 #include "Application.h"
 #include "AssetManager.h"
 #include "AssetTests.h"
@@ -14,7 +15,7 @@ namespace
 void PrintUsage()
 {
     std::cerr << "Usage: NereidesEngine2.exe [--demo | --lifecycle-tests | --input-time-tests | --window-tests"
-                 " | --render-tests | --asset-tests]\n";
+                 " | --render-tests | --asset-tests | --animation-tests]\n";
     std::cerr << "Run without arguments to open the window.\n";
 }
 }
@@ -43,6 +44,8 @@ int main(int argc, char* argv[])
                 return RunRenderTests();
             if (option == "--asset-tests")
                 return RunAssetTests(AssetManager::FindRootFolder());
+            if (option == "--animation-tests")
+                return RunAnimationTests(AssetManager::FindRootFolder());
             if (option != "--demo")
             {
                 // 알 수 없는 인자로 창이 열리면 CI가 멈춘다. 사용법을 알리고 끝낸다.

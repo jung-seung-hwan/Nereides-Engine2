@@ -51,6 +51,13 @@ struct ItemConstants
     DirectX::XMFLOAT4 color;
 };
 static_assert(sizeof(ItemConstants) % 16 == 0, "Constant buffer size must be a multiple of 16 bytes.");
+
+// 항목마다 올리는 뼈 행렬. 항목의 뼈 개수가 MaxBones보다 적으면 나머지는 단위 행렬로 채운다.
+struct BoneConstants
+{
+    DirectX::XMFLOAT4X4 bones[MaxBones];
+};
+static_assert(sizeof(BoneConstants) % 16 == 0, "Constant buffer size must be a multiple of 16 bytes.");
 }
 
 Renderer::Renderer(HWND window, int width, int height) : m_width(width), m_height(height)
@@ -156,11 +163,14 @@ void Renderer::CreatePipeline()
                                               m_pixelShader.GetAddressOf()),
                   "CreatePixelShader");
 
-    // 입력 배치: 정점 버퍼의 정점 하나가 위치(float 3개) 다음 법선(float 3개)이라는 것을 알린다.
-    // POSITION과 NORMAL은 정점 셰이더 입력에 붙인 이름과 맞춘다. 두 번째 칸의 위치는 앞 칸 바로 뒤로 자동으로 잡는다.
+    // 입력 배치: 정점 버퍼의 정점 하나가 위치(float 3개), 법선(float 3개), 뼈 번호(8비트 정수 4개), 가중치(float 4개)
+    // 순서라는 것을 알린다(MeshVertex와 같은 순서). 이름은 정점 셰이더 입력에 붙인 이름과 맞춘다.
+    // 둘째 칸부터의 위치는 앞 칸 바로 뒤로 자동으로 잡는다.
     const D3D11_INPUT_ELEMENT_DESC layout[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"BLENDINDICES", 0, DXGI_FORMAT_R8G8B8A8_UINT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"BLENDWEIGHT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
     };
     // std::size(배열)는 배열의 원소 개수를 돌려준다. <iterator>에 있는 C++17 함수다.
     ThrowIfFailed(m_device->CreateInputLayout(layout, static_cast<UINT>(std::size(layout)), g_SceneVertexShader,
@@ -177,11 +187,16 @@ void Renderer::CreatePipeline()
     desc.ByteWidth = sizeof(ItemConstants);
     ThrowIfFailed(m_device->CreateBuffer(&desc, nullptr, m_itemConstants.GetAddressOf()),
                   "CreateBuffer (item constants)");
+    desc.ByteWidth = sizeof(BoneConstants);
+    ThrowIfFailed(m_device->CreateBuffer(&desc, nullptr, m_boneConstants.GetAddressOf()),
+                  "CreateBuffer (bone constants)");
 }
 
 void Renderer::ReleaseDeviceObjects()
 {
     m_meshes.clear();
+    m_boneConstantsAreIdentity = false;
+    m_boneConstants.Reset();
     m_itemConstants.Reset();
     m_frameConstants.Reset();
     m_inputLayout.Reset();
@@ -243,10 +258,11 @@ void Renderer::Render(const RenderFrame& frame)
     m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     m_context->VSSetShader(m_vertexShader.Get(), nullptr, 0);
     m_context->PSSetShader(m_pixelShader.Get(), nullptr, 0);
-    // 상수 버퍼를 0번 자리부터 두 개 연결한다. 0번이 셰이더의 register(b0) FrameConstants, 1번이 b1 ItemConstants다.
-    ID3D11Buffer* constants[] = {m_frameConstants.Get(), m_itemConstants.Get()};
+    // 상수 버퍼를 0번 자리부터 세 개 연결한다. 0번이 셰이더의 register(b0) FrameConstants, 1번이 b1 ItemConstants,
+    // 2번이 b2 BoneConstants다. 픽셀 셰이더는 뼈 행렬을 쓰지 않으므로 앞의 두 개만 연결한다.
+    ID3D11Buffer* constants[] = {m_frameConstants.Get(), m_itemConstants.Get(), m_boneConstants.Get()};
     m_context->VSSetConstantBuffers(0, static_cast<UINT>(std::size(constants)), constants);
-    m_context->PSSetConstantBuffers(0, static_cast<UINT>(std::size(constants)), constants);
+    m_context->PSSetConstantBuffers(0, 2, constants);
 
     // view × projection은 프레임마다 한 번만 곱해 둔다.
     FrameConstants frameConstants = {};
@@ -268,6 +284,25 @@ void Renderer::Render(const RenderFrame& frame)
         DirectX::XMStoreFloat4x4(&itemConstants.world, DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item.world)));
         itemConstants.color = item.color;
         m_context->UpdateSubresource(m_itemConstants.Get(), 0, nullptr, &itemConstants, 0, 0);
+
+        // 뼈 행렬: 항목이 준 만큼 전치해서 올리고, 나머지 자리는 단위 행렬로 둔다. 뼈가 없는 항목은 전부 단위 행렬이다.
+        // 단위 행렬 전부를 올린 뒤에는 뼈 없는 항목이 이어져도 다시 올리지 않는다(8KB를 항목마다 보내지 않기 위해).
+        if (item.bones.size() > static_cast<std::size_t>(MaxBones))
+            throw std::invalid_argument("A draw item has more bones than the renderer supports.");
+        if (!item.bones.empty() || !m_boneConstantsAreIdentity)
+        {
+            BoneConstants boneConstants;
+            for (int i = 0; i < MaxBones; ++i)
+            {
+                if (static_cast<std::size_t>(i) < item.bones.size())
+                    DirectX::XMStoreFloat4x4(&boneConstants.bones[i],
+                                             DirectX::XMMatrixTranspose(DirectX::XMLoadFloat4x4(&item.bones[static_cast<std::size_t>(i)])));
+                else
+                    DirectX::XMStoreFloat4x4(&boneConstants.bones[i], DirectX::XMMatrixIdentity());
+            }
+            m_context->UpdateSubresource(m_boneConstants.Get(), 0, nullptr, &boneConstants, 0, 0);
+            m_boneConstantsAreIdentity = item.bones.empty();
+        }
 
         // 정점 하나의 바이트 수(stride)를 알려 줘야 GPU가 다음 정점을 찾는다.
         const UINT stride = sizeof(MeshVertex);

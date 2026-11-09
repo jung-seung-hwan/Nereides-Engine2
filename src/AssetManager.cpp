@@ -56,8 +56,8 @@ const ModelData& AssetManager::LoadModel(const std::string& relativePath)
     const std::filesystem::path fullPath = std::filesystem::path(m_rootFolder) / requested;
     auto model = std::make_unique<ModelData>(LoadGltf(fullPath.string(), key));
     std::cout << "Load model: " << key << " (vertices=" << model->mesh.vertices.size()
-              << " triangles=" << model->mesh.indices.size() / 3 << " bones=" << model->boneCount
-              << " clips=" << model->clipNames.size() << ")\n";
+              << " triangles=" << model->mesh.indices.size() / 3 << " bones=" << model->bones.size()
+              << " clips=" << model->clips.size() << ")\n";
     m_models.push_back(std::move(model));
     return *m_models.back();
 }

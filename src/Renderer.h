@@ -58,7 +58,9 @@ private:
     Microsoft::WRL::ComPtr<ID3D11InputLayout> m_inputLayout;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_frameConstants; // 프레임마다 바뀌는 값
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_itemConstants;  // 항목마다 바뀌는 값
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_boneConstants;  // 항목마다 바뀌는 뼈 행렬(최대 MaxBones개)
     std::vector<GpuMesh> m_meshes;
+    bool m_boneConstantsAreIdentity = false; // 뼈 상수 버퍼가 지금 단위 행렬 128개로 채워져 있으면 true
     int m_width;
     int m_height;
     bool m_usingWarp = false;

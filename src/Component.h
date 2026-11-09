@@ -29,6 +29,11 @@ public:
     // 시간은 GetTime().DeltaTime()을 읽는다. 정지 중에는 0이다.
     virtual void Update() {}
 
+    // tick 안, Scene.FixedUpdate 뒤의 애니메이션 단계에서 부른다. 재생을 진행하는 컴포넌트(Animator)만 재정의한다.
+    // 이 단계가 객체를 차례로 도는 동안 생성·삭제·Clear는 EndTick까지 미뤄진다(4-1).
+    // FixedUpdate에서 요청한 재생은 같은 tick의 이 단계에서 적용된다.
+    virtual void AdvanceAnimation() {}
+
     // 그릴 것이 있는 컴포넌트만 재정의해서 frame.items에 항목을 넣는다. 기본은 아무것도 넣지 않는다.
     // 수집 함수가 모든 tick과 Update가 끝난 뒤 프레임마다 한 번 부르고, 보간한 월드 행렬을 넘긴다.
     // 읽기만 한다. 여기서 객체나 Scene을 바꾸지 않는다.

@@ -32,15 +32,20 @@ void GameObject::AddComponent(std::unique_ptr<Component> component)
 
 void GameObject::FixedUpdate()
 {
-    RunComponents(true);
+    RunComponents(UpdateStep::FixedUpdate);
+}
+
+void GameObject::AdvanceAnimation()
+{
+    RunComponents(UpdateStep::Animation);
 }
 
 void GameObject::Update()
 {
-    RunComponents(false);
+    RunComponents(UpdateStep::Update);
 }
 
-void GameObject::RunComponents(bool fixedStep)
+void GameObject::RunComponents(UpdateStep step)
 {
     // 이번 갱신 중 추가한 Component는 같은 종류의 다음 갱신부터 실행한다.
     // 그래서 tick에서 붙인 Component는 같은 프레임의 Update를 첫 FixedUpdate보다 먼저 받을 수 있다.
@@ -53,10 +58,12 @@ void GameObject::RunComponents(bool fixedStep)
         Component* component = m_components[i].get();
         if (!component->IsEnabled())
             continue;
-        if (fixedStep)
-            component->FixedUpdate();
-        else
-            component->Update();
+        switch (step)
+        {
+        case UpdateStep::FixedUpdate: component->FixedUpdate(); break;
+        case UpdateStep::Animation: component->AdvanceAnimation(); break;
+        case UpdateStep::Update: component->Update(); break;
+        }
     }
 }
 

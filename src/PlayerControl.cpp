@@ -1,4 +1,5 @@
 #include "PlayerControl.h"
+#include "Animator.h"
 #include "GameObject.h"
 #include "Input.h"
 #include "Time.h"
@@ -12,11 +13,16 @@ namespace
 const float MouseTurnPerCount = 0.01f;
 }
 
-PlayerControl::PlayerControl(GameObject& owner, float speed, int logEveryTicks)
-    : Component(owner), m_speed(speed), m_logEveryTicks(logEveryTicks)
+PlayerControl::PlayerControl(GameObject& owner, float speed, int logEveryTicks, Animator* animator,
+                             const std::string& attackClip)
+    : Component(owner), m_speed(speed), m_logEveryTicks(logEveryTicks), m_animator(animator), m_attackClip(attackClip)
 {
     if (logEveryTicks < 1)
         throw std::invalid_argument("Log interval must be at least 1 tick.");
+    if (animator != nullptr && &animator->GetOwner() != &owner)
+        throw std::invalid_argument("PlayerControl needs an Animator from the same GameObject.");
+    if (animator != nullptr && animator->Model().FindClip(attackClip) < 0)
+        throw std::invalid_argument("PlayerControl needs an attack clip that the model has: '" + attackClip + "'.");
 }
 
 void PlayerControl::FixedUpdate()
@@ -52,7 +58,12 @@ void PlayerControl::FixedUpdate()
     // 누름은 tick 하나에서만 참이므로 공격은 한 번만 실행된다.
     const bool attacked = input.IsPressed(Action::Attack);
     if (attacked)
+    {
         ++m_attackCount;
+        // 재생 요청은 기록만 된다. 같은 tick의 애니메이션 단계(Scene.FixedUpdate 뒤)에서 적용된다.
+        if (m_animator != nullptr)
+            m_animator->Play(m_attackClip, false);
+    }
 
     // 위치 로그는 정한 간격마다 쓴다. 공격한 tick은 간격과 상관없이 바로 쓰지만, 정기 로그의 간격은 밀지 않는다.
     ++m_ticksSinceLog;

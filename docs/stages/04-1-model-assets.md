@@ -250,4 +250,4 @@ msbuild NereidesEngine2.sln /p:Configuration=Debug /p:Platform=x64
 | 창 닫기 | Shutdown, 종료 코드 0 | 객체 정리 로그 4줄, 종료 코드 0 |
 
 - 마우스 회전은 3-2·3-3과 같은 이유로 스크립트로 확인하지 못했다.
-- CI는 PR을 만든 뒤 확인한다.
+- CI는 PR 18의 확인 4개(Debug·Release 빌드와 시험)가 모두 성공했다(2026-11-09 확인).

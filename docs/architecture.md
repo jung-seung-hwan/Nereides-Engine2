@@ -40,10 +40,10 @@ flowchart TB
 | Input | 키·마우스 메시지 | 다음 tick에서 소비할 입력 |
 | Time | 실제 경과 시간, 정지·배속 요청 | 이번 프레임의 tick 수, tick 하나의 고정 시간(`FixedDeltaTime()`), 이번 프레임의 게임 시간(`DeltaTime()`) |
 | Scene / GameObject | 생성·변경·삭제 요청 | 현재 객체, 위치, Component 상태 |
-| Animator / Timeline | 클립, 재생 요청, 시간 | 뼈 자세, 재생 위치, 통과한 마커·구간 |
+| Animator / Timeline | 클립, 재생 요청(Play), tick 하나의 시간 | 뼈 자세와 뼈 행렬(스키닝용, 뼈의 모델 공간 위치), 재생 위치, tick마다 재생한 구간과 시작·되감김·끝 표시. 마커·구간은 단계 5 |
 | CollisionWorld | 판정체의 위치·형상·활성 구간 | 접촉 대상과 시점 |
-| Renderer | 카메라, 메시·재질, 위치, 뼈 자세 | 화면 |
-| AssetManager | 저장소 루트 기준 경로 | 공유할 모델 원본(메시, 뼈 개수, 클립 이름). 텍스처는 아직 없다 |
+| Renderer | 카메라, 메시·재질, 위치, 뼈 행렬(그리기 항목마다 최대 128개) | 화면 |
+| AssetManager | 저장소 루트 기준 경로 | 공유할 모델 원본(메시, 뼈, 클립). 텍스처는 아직 없다 |
 
 모델 원본은 여러 객체가 공유할 수 있다. 재생 위치와 현재 자세는 객체마다 다르다. 공유 원본과 실행 상태를 분리한다.
 
@@ -91,6 +91,7 @@ flowchart TD
 | 입력 큐 | 시각과 순서가 있는 입력 큐 | tick 단위 결과. 누름·유지·뗌과 마우스 변화량만 보관 | 소비 사이에 같은 키를 여러 번 누르면 1회가 된다. 서로 다른 키의 순서와 프레임 안에서 누른 시점은 남지 않는다. 단계 5에서 합격 기준 범위를 정할 때 다시 본다 |
 | 예약 생성·삭제 반영 | tick의 마지막 | 단계 4-1부터 처음 설계와 같다. Application이 tick마다 `Scene.BeginTick`·`EndTick`을 부르고, 그 사이의 생성·삭제·Clear는 EndTick에서 반영한다. Update에서는 생성·삭제를 하지 않으므로 Scene.Update 끝의 반영은 안전장치다 | 단계 1~3-3에서는 삭제를 Scene.FixedUpdate 끝에, 생성을 즉시 반영했다. 컴포넌트 소멸자에서 들어온 생성·정리 요청은 받아 두는 대신 지금처럼 금지한다. 단계 2 재검증에서 그 길이 크래시로 끝났고 필요한 곳이 없었다 |
 | 보간 계수 | Time이 제공 | Time이 `InterpolationAlpha()`로 준다. 직전 Transform은 GameObject가 갖고 Scene이 tick 시작에 복사한다 | 단계 3-2에서 처음 설계대로 추가했다 |
+| 애니메이션 진행 | 애니메이션과 타임라인 진행은 고정 tick의 한 단계다. 블렌딩(섞는 전환)도 Animation 모듈의 일이다 | 단계 4-2부터 tick 안의 애니메이션 단계가 `Scene.AdvanceAnimation`으로 모든 객체의 Animator를 `FixedDeltaTime()`만큼 진행한다(Component 가상 함수). 클립 바꾸기는 바로 바뀌고 섞지 않는다. tick이 없는 프레임은 자세가 전 tick과 같다(포즈 보간 없음) | 2026-11-09 학생 결정. 섞는 전환과 포즈 보간은 단계 6에서 실제 모델로 보고 다시 정한다. PlayerControl·ModelRenderer는 장면을 만들 때 Animator 주소를 받는다(명시적인 연결) |
 | 모델 원본 | AssetManager가 경로·식별자로 공유 원본을 준다 | 같다. 단계 4-1의 AssetManager가 glTF 파일을 읽어 소유하고, 같은 경로는 같은 원본이다. 원본은 실행 중에 내리지 않고, 가리키는 쪽은 주소를 쓴다 | 내리지 않으므로 수명 규칙이 선언 순서 하나다. 실행 중에 내리는 코드가 생기면 `shared_ptr`와 Renderer 캐시 열쇠를 다시 본다 |
 
 ## 단계 0에서 확인할 것
