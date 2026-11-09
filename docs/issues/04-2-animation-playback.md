@@ -44,4 +44,4 @@
 
 - 코드: 검증 완료(로컬)·PR 검토 대기
 - 학생 이해: 미확인
-- 실제 이슈 / PR / 학생 답변: [이슈 #17](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/17) / 아직 없음 / 아직 없음
+- 실제 이슈 / PR / 학생 답변: [이슈 #17](https://github.com/jung-seung-hwan/Nereides-Engine2/issues/17) / [PR #20](https://github.com/jung-seung-hwan/Nereides-Engine2/pull/20) / 아직 없음
