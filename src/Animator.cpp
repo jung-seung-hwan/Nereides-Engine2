@@ -104,11 +104,11 @@ void Animator::AdvanceAnimation()
     record.start = m_time;
     m_time += GetTime().FixedDeltaTime();
 
-    // 3. 끝을 지났으면 반복 클립은 되감고, 아니면 끝에서 멈춘다. 길이가 0인 클립은 되감을 수 없으므로 바로 끝낸다.
+    // 3. 끝을 지났으면 반복 클립은 되감고, 아니면 끝에서 멈춘다. 길이가 0(또는 여유보다 짧은) 클립은 되감을 수 없으므로 바로 끝낸다.
     //    클립이 tick보다 짧으면 한 tick에 여러 번 되감길 수 있다. 횟수를 세고, 남은 시각이 음수로 가지 않게 한다.
     if (m_time + EndEpsilon >= duration)
     {
-        if (m_loop && duration > 0.0)
+        if (m_loop && duration > EndEpsilon)
         {
             while (m_time + EndEpsilon >= duration)
             {
@@ -172,10 +172,10 @@ void Animator::ComputeMatrices()
         const DirectX::XMMATRIX local = DirectX::XMMatrixScaling(pose.scale.x, pose.scale.y, pose.scale.z) *
                                         DirectX::XMMatrixRotationQuaternion(DirectX::XMLoadFloat4(&pose.rotation)) *
                                         DirectX::XMMatrixTranslation(pose.translation.x, pose.translation.y, pose.translation.z);
-        // 모델 공간 행렬 = 부모 기준 행렬 × 부모의 모델 공간 행렬. 부모는 앞 번호라 이미 계산돼 있다.
-        DirectX::XMMATRIX world = local;
+        // 모델 공간 행렬 = 자기 행렬 × 사이에 낀 노드들의 변환 × 부모의 모델 공간 행렬. 부모는 앞 번호라 이미 계산돼 있다.
+        DirectX::XMMATRIX world = local * DirectX::XMLoadFloat4x4(&bone.parentOffset);
         if (bone.parent >= 0)
-            world = local * DirectX::XMLoadFloat4x4(&m_boneWorlds[static_cast<std::size_t>(bone.parent)]);
+            world = world * DirectX::XMLoadFloat4x4(&m_boneWorlds[static_cast<std::size_t>(bone.parent)]);
         DirectX::XMStoreFloat4x4(&m_boneWorlds[i], world);
         // 스키닝 행렬 = 역바인드 × 모델 공간 행렬. 기본 자세의 정점을 뼈 기준으로 옮겼다가 지금 자세로 되돌린다.
         // 기본 자세 그대로면 둘이 서로 지워져 단위 행렬이 된다.

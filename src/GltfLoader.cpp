@@ -108,23 +108,24 @@ void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::v
     if (jointCount > MaxBones)
         throw LoadError(displayPath, "unsupported data (more than " + std::to_string(MaxBones) + " bones)");
 
-    // 1. 관절마다 부모 관절을 찾고, 그 사이에 낀 관절 아닌 노드들의 변환을 자기 변환에 합친다.
+    // 1. 관절마다 부모 관절을 찾고, 그 사이에 낀 관절 아닌 노드들의 변환을 따로 모아 둔다(parentOffset).
     //    (root 관절 → 보통 노드 → tip 관절 같은 파일에서 중간 노드의 이동·회전이 빠지지 않게 한다.)
-    //    뿌리 관절 위의 노드들도 같은 방식으로 합쳐진다. 스킨이 달린 메시 노드 자체의 변환은 4-1처럼 무시한다.
+    //    자기 변환에 합치지 않는 이유: 클립의 채널이 자기 이동·회전·크기를 통째로 바꾸므로, 합쳐 두면 재생 중에 중간 노드 몫이 사라진다.
+    //    뿌리 관절 위의 노드들도 같은 방식으로 모은다. 스킨이 달린 메시 노드 자체의 변환은 4-1처럼 무시한다.
     std::vector<int> parentJoint(jointCount, -1);
-    std::vector<DirectX::XMFLOAT4X4> localMatrices(static_cast<std::size_t>(jointCount));
+    std::vector<DirectX::XMFLOAT4X4> offsets(static_cast<std::size_t>(jointCount));
     for (int i = 0; i < jointCount; ++i)
     {
-        DirectX::XMMATRIX local = LocalMatrix(*skin.joints[i]);
+        DirectX::XMMATRIX offset = DirectX::XMMatrixIdentity();
         const cgltf_node* ancestor = skin.joints[i]->parent;
         while (ancestor != nullptr && JointIndexOf(skin, ancestor) < 0)
         {
-            // 먼저 적용할 것(자기 변환)을 왼쪽에 둔다. 부모 쪽 변환이 오른쪽에 쌓인다.
-            local = local * LocalMatrix(*ancestor);
+            // 먼저 적용할 것(가까운 조상)을 왼쪽에 둔다. 먼 조상의 변환이 오른쪽에 쌓인다.
+            offset = offset * LocalMatrix(*ancestor);
             ancestor = ancestor->parent;
         }
         parentJoint[i] = ancestor != nullptr ? JointIndexOf(skin, ancestor) : -1;
-        DirectX::XMStoreFloat4x4(&localMatrices[static_cast<std::size_t>(i)], local);
+        DirectX::XMStoreFloat4x4(&offsets[static_cast<std::size_t>(i)], offset);
     }
 
     // 2. 부모가 먼저 오는 순서를 만든다. 자리가 정해진 부모를 가진(또는 뿌리인) 관절을 차례로 붙인다.
@@ -156,17 +157,20 @@ void ReadSkeleton(const cgltf_skin& skin, const std::string& displayPath, std::v
         bone.name = node.name != nullptr ? node.name : "";
         bone.parent = parentJoint[joint] < 0 ? -1 : jointToBone[parentJoint[joint]];
 
-        // 부모 관절 기준 행렬을 이동·회전·크기로 나눈다. 기본 자세는 이 셋으로 두고, 클립의 채널이 그중 일부를 바꾼다.
+        // 자기 변환(부모 쪽 노드 기준)을 이동·회전·크기로 나눈다. 기본 자세는 이 셋으로 두고, 클립의 채널이 그중 일부를 바꾼다.
         // 기울임(shear)이 있는 행렬은 나눌 수 없다. 그런 파일은 받지 않는다.
+        const DirectX::XMMATRIX local = LocalMatrix(node);
         DirectX::XMVECTOR scale, rotation, translation;
-        if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation,
-                                        DirectX::XMLoadFloat4x4(&localMatrices[static_cast<std::size_t>(joint)])))
+        if (!DirectX::XMMatrixDecompose(&scale, &rotation, &translation, local))
             throw LoadError(displayPath, "unsupported data (a bone transform cannot be split into scale, rotation and translation)");
         DirectX::XMStoreFloat3(&bone.scale, scale);
         DirectX::XMStoreFloat4(&bone.rotation, rotation);
         DirectX::XMStoreFloat3(&bone.translation, translation);
         MirrorTranslation(bone.translation);
         MirrorRotation(bone.rotation);
+        // 사이에 낀 노드들의 변환은 행렬 그대로 두고 거울만 맞춘다(S·M·S).
+        bone.parentOffset = offsets[static_cast<std::size_t>(joint)];
+        MirrorMatrix(bone.parentOffset);
 
         // 역바인드 행렬. 파일에 없으면 규격대로 단위 행렬이다.
         DirectX::XMStoreFloat4x4(&bone.inverseBind, DirectX::XMMatrixIdentity());

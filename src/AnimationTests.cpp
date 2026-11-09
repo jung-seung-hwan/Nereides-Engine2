@@ -422,17 +422,32 @@ void TestJointOrderAndParents(const std::string& root)
     const MeshVertex& bodyVertex = FindVertex(reversedModel.mesh, -0.1f, -0.1f, 0.0f);
     Check(bodyVertex.joints[0] == 1, "A vertex that pointed at file joint 0 (now the tip) must point at engine bone 1.");
 
-    // root와 tip 사이에 관절이 아닌 노드 mid(z로 0.5 이동)를 끼운다. tip의 부모 기준 이동은 1 + 0.5가 돼야 한다.
+    // root와 tip 사이에 관절이 아닌 노드 mid(z로 0.5 이동)를 끼운다. tip의 자기 이동은 1 그대로이고, mid의 0.5는 parentOffset에 남는다.
+    // 그래서 tip의 이동 키가 있는 클립을 재생해도 mid의 몫이 사라지지 않는다.
     std::string middle = ReadTestModelText(root);
     ReplaceOnce(middle, "\"children\": [\n    1\n   ]", "\"children\": [\n    4\n   ]");
     ReplaceOnce(middle, "  }\n ],\n \"meshes\"", "  },\n  {\"name\": \"mid\", \"translation\": [0, 0, 0.5], \"children\": [1]}\n ],\n \"meshes\"");
     WriteText(folder.path / "middle.gltf", middle);
     const ModelData& middleModel = tempAssets.LoadModel("middle.gltf");
     Check(middleModel.bones.size() == 2 && middleModel.bones[1].parent == 0, "A node between two joints does not become a bone.");
-    Check(Near(middleModel.bones[1].translation.z, 1.5f), "The in-between node's translation is folded into the child bone.");
+    Check(Near(middleModel.bones[1].translation.z, 1.0f) && Near(middleModel.bones[1].parentOffset._43, 0.5f),
+          "The in-between node's translation is kept apart from the child bone's own translation.");
+    Check(IsIdentity(middleModel.bones[0].parentOffset), "A bone whose parent is a joint has no offset.");
+
+    // 기본 자세에서 tip의 모델 공간 위치는 1.5다. "bend"(회전 키만)를 재생해도 그대로다.
+    TestWorld world(0.1);
+    GameObject& object = world.scene.CreateObject("middle");
+    Animator& animator = AddAnimator(object, middleModel);
+    Check(Near(Apply(animator.BoneWorldMatrices()[1], {0.0f, 0.0f, 0.0f}).z, 1.5f), "The tip sits at z=1.5 with the in-between node.");
+    animator.Play("bend", false);
+    for (int i = 0; i < 5; ++i)
+        RunTick(world.scene, world.input, world.time);
+    Check(Near(Apply(animator.BoneWorldMatrices()[1], {0.0f, 0.0f, 0.0f}).z, 1.5f),
+          "Playing a clip keeps the in-between node's part of the tip position.");
 }
 
-// 12. 오류: LINEAR가 아닌 보간과 같은 시각의 키는 읽지 않는다. 없는 클립 이름은 Play에서 바로 거부한다.
+// 12. 오류: LINEAR가 아닌 보간은 읽지 않는다. 없는 클립 이름은 Play에서 바로 거부한다.
+// (같은 시각의 키를 거부하는 검사는 이진 버퍼를 바꿔야 해서 여기서 시험하지 않는다.)
 void TestErrors(const std::string& root, const ModelData& model)
 {
     const TempFolder folder;

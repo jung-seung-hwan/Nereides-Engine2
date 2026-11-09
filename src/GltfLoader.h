@@ -13,6 +13,8 @@ struct Bone
     DirectX::XMFLOAT3 translation{};
     DirectX::XMFLOAT4 rotation{0.0f, 0.0f, 0.0f, 1.0f}; // 사원수 (x, y, z, w). w=1이면 회전 없음
     DirectX::XMFLOAT3 scale{1.0f, 1.0f, 1.0f};
+    // 이 뼈와 부모 뼈 사이에 낀 보통 노드들의 변환(없으면 단위 행렬). 클립이 바꾸는 것은 위의 이동·회전·크기뿐이고 이 값은 그대로다.
+    DirectX::XMFLOAT4X4 parentOffset{};
     DirectX::XMFLOAT4X4 inverseBind{};
 };
 
