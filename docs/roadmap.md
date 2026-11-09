@@ -11,7 +11,7 @@
 | [3-2 카메라와 장면 표시](issues/03-2-scene-rendering.md) | 카메라·도형·렌더 데이터·보간 | 바닥과 두 대용 도형 표시, 위치 변경 반영 | 로컬 검증 완료·PR 검토 대기 | 미확인 |
 | [3-3 Update와 FixedUpdate](issues/03-3-update-split.md) | 프레임마다 Update, 0.02초 FixedUpdate, 유니티 시간 이름, if로 루프 종료 | 호출 횟수·`DeltaTime()` 시험, 3-2와 같은 데모 출력과 창 동작 | 로컬 검증 완료·PR 검토 대기 | 미확인 |
 | [4-1 모델 원본 읽기와 공유](issues/04-1-model-assets.md) | AssetManager, glTF 로더(cgltf), 좌표계 변환, tick 끝 반영, 시험 모델 | 두 객체가 같은 원본으로 표시, 오류 보고, 변환·공유·tick 경계 시험 | 로컬 검증 완료·PR 검토 대기 | 미확인 |
-| [4-2 Animator 재생과 스키닝](issues/04-2-animation-playback.md) | 클립·뼈 읽기, Animator, 뼈 행렬, 스키닝 | 클립 재생, 반복·완료·바로 바꾸기, 정지·배속, 객체별 재생 시각, Space로 재생, tick 기록 | 진행 | 미확인 |
+| [4-2 Animator 재생과 스키닝](issues/04-2-animation-playback.md) | 클립·뼈 읽기, Animator, 뼈 행렬, 스키닝 | 클립 재생, 반복·완료·바로 바꾸기, 정지·배속, 객체별 재생 시각, Space로 재생, tick 기록 | 로컬 검증 완료·PR 검토 대기 | 미확인 |
 | [5 판정과 시점](issues/05-collision-timing.md) | Collider·접촉 결과·마커와 활성 구간 | 재생·판정 동기화, 낮은 FPS·취소 경계 확인 | 미착수 | 미확인 |
 | [6 작은 전투](issues/06-prototype.md) | 행동 1개씩, 단순 HP, 재시작 | 캐릭터와 크라켄의 상호 타격·종료·재시작 | 미착수 | 미확인 |
 | [7 반복 안정성](issues/07-stability.md) | 재현 절차·경계 검증·실행 패키지 | 반복 재시작·포커스·정지·낮은 FPS 검증 | 미착수 | 미확인 |
