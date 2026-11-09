@@ -8,8 +8,8 @@ struct ModelData
 {
     std::string path;                   // 요청한 상대 경로를 정리한 모양('/' 구분자). 공유의 열쇠이고 로그·오류 메시지에 쓴다
     MeshData mesh;                      // 엔진 좌표계로 바꾼 메시. 파일의 모든 삼각형 묶음을 하나로 합친다
-    std::size_t boneCount = 0;          // 스킨의 뼈 개수. 스킨이 없으면 0. 4-2가 쓴다
-    std::vector<std::string> clipNames; // 애니메이션 클립 이름들. 4-2가 쓴다
+    std::size_t boneCount = 0;          // 스킨의 뼈 개수. 스킨이 없으면 0. 4-3이 쓴다
+    std::vector<std::string> clipNames; // 애니메이션 클립 이름들. 4-3이 쓴다
 };
 
 // glTF 2.0 파일(.gltf, .glb)을 읽어 ModelData로 바꾼다. 파일 형식을 아는 곳은 이 함수뿐이다.

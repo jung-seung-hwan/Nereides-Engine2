@@ -216,7 +216,7 @@ private:
     Counts& m_counts;
 };
 
-// tick 안의 FixedUpdate 뒤 단계(단계 4-2의 애니메이션, 단계 5의 충돌)가 객체를 차례로 도는 모습이다.
+// tick 안의 FixedUpdate 뒤 단계(단계 4-3의 애니메이션, 단계 5의 충돌)가 객체를 차례로 도는 모습이다.
 // 도중에 생성·Clear가 요청되어도 목록이 바뀌지 않아 끝까지 돌 수 있어야 한다.
 std::size_t WalkObjects(const Scene& scene)
 {

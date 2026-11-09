@@ -21,7 +21,8 @@ flowchart TB
     App --> Runtime["Runtime: 갱신 순서와 서비스 연결"]
     Runtime --> Input["Input: 입력 기록과 전달"]
     Runtime --> Time["Time: 진행 시간과 고정 tick"]
-    Runtime --> Scene["Scene 하나: 현재 장면"]
+    Runtime --> SceneManager["SceneManager: 지금 장면의 주인, 장면 바꾸기"]
+    SceneManager --> Scene["Scene: 지금 장면 하나 (타이틀 또는 전투)"]
     Runtime --> Assets["AssetManager: 원본 리소스"]
     Runtime --> Collision["CollisionWorld: 접촉 계산"]
     Runtime --> Renderer["Renderer: DX11 화면 출력"]
@@ -91,6 +92,7 @@ flowchart TD
 | 입력 큐 | 시각과 순서가 있는 입력 큐 | tick 단위 결과. 누름·유지·뗌과 마우스 변화량만 보관 | 소비 사이에 같은 키를 여러 번 누르면 1회가 된다. 서로 다른 키의 순서와 프레임 안에서 누른 시점은 남지 않는다. 단계 5에서 합격 기준 범위를 정할 때 다시 본다 |
 | 예약 생성·삭제 반영 | tick의 마지막 | 단계 4-1부터 처음 설계와 같다. Application이 tick마다 `Scene.BeginTick`·`EndTick`을 부르고, 그 사이의 생성·삭제·Clear는 EndTick에서 반영한다. Update에서는 생성·삭제를 하지 않으므로 Scene.Update 끝의 반영은 안전장치다 | 단계 1~3-3에서는 삭제를 Scene.FixedUpdate 끝에, 생성을 즉시 반영했다. 컴포넌트 소멸자에서 들어온 생성·정리 요청은 받아 두는 대신 지금처럼 금지한다. 단계 2 재검증에서 그 길이 크래시로 끝났고 필요한 곳이 없었다 |
 | 보간 계수 | Time이 제공 | Time이 `InterpolationAlpha()`로 준다. 직전 Transform은 GameObject가 갖고 Scene이 tick 시작에 복사한다 | 단계 3-2에서 처음 설계대로 추가했다 |
+| 장면 수 | Scene 하나면 충분하다. 장면 전환은 로드맵에 없었다 | 단계 4-2부터 SceneManager가 지금 장면 하나를 `unique_ptr`로 갖고, 바꾸기 요청을 기록했다가 정한 자리에서 옛 장면을 지우고 새 장면을 코드로 채운다(타이틀·전투). 장면은 여전히 한 번에 하나다 | 2026-11-09 학생이 바꿨다: 타이틀 화면과 화면 전환이 필요하다. 학생이 정한 것이라 설계 기준 어긋남으로 보지 않는다. 4-3의 Animator와 단계 5의 Collider는 장면이 지워졌다 다시 만들어지는 것을 전제로 설계하고, 단계 6의 재시작은 전투 장면 다시 불러오기로 한다. 컴포넌트가 바꾸기를 요청할 수 있게 하면 Scene의 서비스가 Input·Time·SceneManager 셋이 된다(4-2 설계 문서의 결정 1, 학생 답 대기) |
 | 모델 원본 | AssetManager가 경로·식별자로 공유 원본을 준다 | 같다. 단계 4-1의 AssetManager가 glTF 파일을 읽어 소유하고, 같은 경로는 같은 원본이다. 원본은 실행 중에 내리지 않고, 가리키는 쪽은 주소를 쓴다 | 내리지 않으므로 수명 규칙이 선언 순서 하나다. 실행 중에 내리는 코드가 생기면 `shared_ptr`와 Renderer 캐시 열쇠를 다시 본다 |
 
 ## 단계 0에서 확인할 것

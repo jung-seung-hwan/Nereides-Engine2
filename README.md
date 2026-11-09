@@ -7,8 +7,8 @@ C++를 6개월 배운 학생이 모듈의 역할과 관계부터 이해하며 �
 
 모델 파일(glTF 2.0)을 읽어 엔진의 메시 원본으로 바꾸고, 여러 객체가 그 원본을 함께 쓴다. 원본의 주인은 새로 만든 AssetManager다. 파일 형식을 아는 곳은 `LoadGltf` 하나이고, 외부 로더 cgltf(헤더 한 파일, MIT)를 `third_party/`에 둔다.
 glTF는 오른손 좌표계·반시계 앞면이라 로더가 X를 뒤집고 삼각형 순서를 바꿔 엔진의 왼손 좌표계·시계 앞면으로 만든다.
-생성·삭제 반영을 Scene.FixedUpdate 끝에서 tick 끝(`Scene.EndTick`)으로 옮겨, 4-2의 애니메이션 단계가 객체를 도는 동안 목록이 바뀌지 않게 했다.
-저장소에는 작은 시험 모델 `assets/test/arrow.gltf`만 둔다. 창 모드에서 Player와 Kraken이 같은 화살표 원본을 쓴다. 재생·스키닝은 단계 4-2다.
+생성·삭제 반영을 Scene.FixedUpdate 끝에서 tick 끝(`Scene.EndTick`)으로 옮겨, 4-3의 애니메이션 단계가 객체를 도는 동안 목록이 바뀌지 않게 했다.
+저장소에는 작은 시험 모델 `assets/test/arrow.gltf`만 둔다. 창 모드에서 Player와 Kraken이 같은 화살표 원본을 쓴다. 재생·스키닝은 단계 4-3이다(2026-11-09 학생 결정으로 4-2는 SceneManager가 되었다).
 C++ 표준은 C++20으로 올렸다. 팀원의 셜록 엔진과 같다.
 
 1. [전체 목표 구조](docs/architecture.md)
