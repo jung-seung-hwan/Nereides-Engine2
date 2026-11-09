@@ -33,6 +33,7 @@ const float PlayerSpeed = 1.0f; // 초당 이동 거리
 
 // 창 모드의 모델. 저장소의 작은 시험 모델이다. 경로는 저장소 루트 기준이다.
 const char* CharacterModelPath = "assets/test/arrow.gltf";
+const char* PlayerModelPath = "assets/Player.glb";
 
 // 창 모드 장면의 값. 바닥 위에 상자 두 개를 놓고, 카메라가 앞 위에서 내려다본다.
 const DirectX::XMFLOAT4 FloorColor = {0.45f, 0.47f, 0.50f, 1.0f};
@@ -118,11 +119,12 @@ void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
     // 원본을 먼저 준비한다. 모델은 AssetManager가 파일에서 읽어 갖고, 바닥은 코드로 만든다.
     // ModelRenderer는 이 원본들을 가리키기만 한다. 파일이 없거나 잘못되면 여기서 예외가 나고 main이 알린다.
     const ModelData& character = m_assets.LoadModel(CharacterModelPath);
+    const ModelData& playerGirl = m_assets.LoadModel(PlayerModelPath);
     m_floorMesh = MakeFloor();
 
     // 화살표 모델은 원점에서 +Z로 뻗는다. 바닥(y=0) 위에 조금 띄워 놓는다.
     player.transform.position.y = 0.3f;
-    player.AddComponent(std::make_unique<ModelRenderer>(player, character.mesh, PlayerColor));
+    player.AddComponent(std::make_unique<ModelRenderer>(player, playerGirl.mesh, PlayerColor));
 
     // Kraken도 같은 원본을 쓴다. 원본은 한 번만 읽히고 GPU 버퍼도 한 벌이다. 크기와 색만 다르다.
     // 비활성 객체는 그리지 않으므로 창 모드의 Kraken은 켜 둔다.
