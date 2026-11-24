@@ -138,6 +138,22 @@ void Application::BuildWindowScene(GameObject& player, GameObject& kraken)
     cameraObject.AddComponent(std::move(camera));
 }
 
+void Main() {
+    // 초기화
+
+    while (true) {
+        // 입력 처리
+
+        // 물리 처리
+
+        // 업데이트
+
+        // 렌더링
+    }
+
+    // 끝나면 정리
+}
+
 void Application::RunWindow()
 {
     bool wasMinimized = false;
