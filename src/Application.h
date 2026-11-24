@@ -13,9 +13,12 @@ private:
     void Initialize();
     void ReadInput();
     void AdvanceTime();
-    void UpdateObjects(int frame);
+    void UpdateObjects();
     void UpdateAnimation();
     void CheckCollision();
     void Render();
     void Shutdown();
+
+    // 플레이어의 주소를 담기 위한 변수
+    GameObject* m_player = nullptr;
 };

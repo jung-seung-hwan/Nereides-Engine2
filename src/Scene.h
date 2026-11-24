@@ -9,7 +9,7 @@ class Scene
 public:
     ~Scene();
     GameObject& CreateObject(const std::string& name);
-    void Update(int frame);
+    void Update();
     void Clear();
     std::size_t ObjectCount() const { return m_objects.size(); }
 

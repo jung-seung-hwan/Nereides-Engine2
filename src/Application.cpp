@@ -13,7 +13,13 @@ void Application::Run()
         std::cout << "\nFrame " << frame << '\n';
         ReadInput();
         AdvanceTime();
-        UpdateObjects(frame);
+
+        if (frame == 2) 
+        {
+            m_player->SetActive(false);
+        }
+
+        UpdateObjects();
         UpdateAnimation();
         CheckCollision();
         Render();
@@ -28,6 +34,7 @@ void Application::Initialize()
     std::cout << "No real input, clock, animation, collision, or DX11 yet.\n";
     std::cout << "Initialize\n";
     GameObject& player = m_scene.CreateObject("Player");
+    m_player = &player;
     player.transform.position.x = -2;
     player.AddComponent(std::make_unique<LogComponent>(player));
     GameObject& kraken = m_scene.CreateObject("Kraken");
@@ -46,10 +53,10 @@ void Application::AdvanceTime()
     std::cout << "  2. Time      [placeholder]\n";
 }
 
-void Application::UpdateObjects(int frame)
+void Application::UpdateObjects( )
 {
     std::cout << "  3. Objects\n";
-    m_scene.Update(frame);
+    m_scene.Update();
 }
 
 void Application::UpdateAnimation()
@@ -70,5 +77,6 @@ void Application::Render()
 void Application::Shutdown()
 {
     std::cout << "\nShutdown\n";
+    m_player = nullptr;
     m_scene.Clear();
 }
